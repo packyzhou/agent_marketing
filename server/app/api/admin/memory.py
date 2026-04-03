@@ -43,8 +43,8 @@ async def get_memory(
         app_key=app_key,
         kv_content=kv_content,
         digest_content=digest_content,
-        rounds_count=memory_meta.rounds_count,
-        last_processed_at=memory_meta.last_processed_at.isoformat() if memory_meta.last_processed_at else None
+        rounds_count=memory_meta.last_processed_round or 0,
+        last_processed_at=memory_meta.last_updated.isoformat() if memory_meta.last_updated else None
     )
 
 @router.get("/memory")
@@ -60,10 +60,42 @@ async def list_all_memory(
     return [
         {
             "app_key": mem.app_key,
-            "rounds_count": mem.rounds_count,
-            "last_processed_at": mem.last_processed_at.isoformat() if mem.last_processed_at else None,
+            "rounds_count": mem.last_processed_round or 0,
+            "last_processed_at": mem.last_updated.isoformat() if mem.last_updated else None,
             "has_kv_file": mem.kv_file_path and os.path.exists(mem.kv_file_path),
             "has_digest_file": mem.digest_file_path and os.path.exists(mem.digest_file_path)
         }
         for mem in memories
     ]
+
+@router.post("/memory/{app_key}/clear")
+async def clear_memory_files(
+    app_key: str,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    memory_meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
+    if not memory_meta:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    cleared_kv = False
+    cleared_digest = False
+
+    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
+        with open(memory_meta.kv_file_path, "w", encoding="utf-8") as f:
+            f.write("")
+        cleared_kv = True
+
+    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
+        with open(memory_meta.digest_file_path, "w", encoding="utf-8") as f:
+            f.write("")
+        cleared_digest = True
+
+    memory_meta.last_processed_round = 0
+    db.commit()
+
+    return {
+        "app_key": app_key,
+        "cleared_kv": cleared_kv,
+        "cleared_digest": cleared_digest
+    }

@@ -18,9 +18,19 @@
       <el-table-column label="操作" width="150">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="openDialog(row)">编辑</el-button>
+          <el-button type="danger" size="small" @click="deleteProvider(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+    <div class="mt-4 flex justify-end">
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @current-change="loadProviders"
+      />
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑供应商' : '添加供应商'" width="600px">
       <el-form :model="form" label-width="100px">
@@ -52,13 +62,21 @@ import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 
 const providers = ref([])
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const form = ref({ name: '', code: '', base_url: '', config_guide: '' })
 
 const loadProviders = async () => {
   try {
-    providers.value = await api.get('/admin/providers')
+    const skip = (page.value - 1) * pageSize.value
+    const res = await api.get('/admin/providers', {
+      params: { skip, limit: pageSize.value }
+    })
+    providers.value = res.items || []
+    total.value = res.total || 0
   } catch (error) {
     ElMessage.error('加载失败')
   }
@@ -88,6 +106,16 @@ const handleSubmit = async () => {
     loadProviders()
   } catch (error) {
     ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
+  }
+}
+
+const deleteProvider = async (providerId) => {
+  try {
+    await api.delete(`/admin/providers/${providerId}`)
+    ElMessage.success('删除成功')
+    loadProviders()
+  } catch (error) {
+    ElMessage.error('删除失败')
   }
 }
 

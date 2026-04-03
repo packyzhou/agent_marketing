@@ -6,8 +6,8 @@ import secrets
 import json
 from ...core.database import get_db
 from ...core.deps import get_current_user
-from ...models.tenant import Tenant
-from ...models.user import User, Group
+from ...models.tenant import Tenant, TenantStatus
+from ...models.user import User, Group, GroupMemberAppBinding
 from ...models.provider import Provider, ProviderKey
 from .tenant_schemas import (
     TenantCreate,
@@ -18,6 +18,8 @@ from .tenant_schemas import (
     ProviderResponse,
     GroupResponse,
     GroupPageResponse,
+    GroupMemberResponse,
+    GroupMemberBindRequest,
 )
 
 router = APIRouter()
@@ -164,12 +166,17 @@ async def update_tenant(
 
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    if str(getattr(tenant.status, "value", tenant.status)).upper() != "ACTIVE":
+        raise HTTPException(status_code=400, detail="Tenant is inactive")
 
     if tenant_data.tenant_name:
         tenant.tenant_name = tenant_data.tenant_name
 
     if tenant_data.status:
-        tenant.status = tenant_data.status
+        status_value = str(tenant_data.status).upper()
+        if status_value not in [TenantStatus.ACTIVE.value, TenantStatus.INACTIVE.value]:
+            raise HTTPException(status_code=400, detail="Invalid tenant status")
+        tenant.status = TenantStatus(status_value)
 
     if tenant_data.binding_user_ids is not None:
         users = (
@@ -194,6 +201,121 @@ async def update_tenant(
     db.commit()
     db.refresh(tenant)
     return tenant
+
+
+@router.get("/group-members", response_model=List[GroupMemberResponse])
+async def list_group_members(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    members = (
+        db.query(User)
+        .filter(User.referral_id == current_user.id)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+    member_ids = [member.id for member in members]
+    if not member_ids:
+        return []
+    bindings = (
+        db.query(GroupMemberAppBinding)
+        .filter(
+            GroupMemberAppBinding.owner_user_id == current_user.id,
+            GroupMemberAppBinding.member_id.in_(member_ids),
+        )
+        .all()
+    )
+    binding_map = {binding.member_id: binding for binding in bindings}
+    app_keys = [binding.app_key for binding in bindings if binding.app_key]
+    tenant_map = {}
+    if app_keys:
+        tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
+        tenant_map = {tenant.app_key: tenant for tenant in tenants}
+
+    return [
+        GroupMemberResponse(
+            member_id=member.id,
+            member_name=member.real_name or member.username,
+            app_key=(
+                binding_map.get(member.id).app_key
+                if binding_map.get(member.id)
+                else None
+            ),
+            app_key_status=(
+                str(tenant_map[binding_map[member.id].app_key].status.value)
+                if binding_map.get(member.id)
+                and binding_map[member.id].app_key in tenant_map
+                else None
+            ),
+        )
+        for member in members
+    ]
+
+
+@router.get("/active-app-keys", response_model=List[TenantResponse])
+async def list_owned_active_tenants(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    tenants = (
+        db.query(Tenant)
+        .filter(Tenant.user_id == current_user.id, Tenant.status == TenantStatus.ACTIVE)
+        .order_by(Tenant.created_at.desc())
+        .all()
+    )
+    return tenants
+
+
+@router.post("/group-members/{member_id}/bind-app-key")
+async def bind_member_app_key(
+    member_id: int,
+    data: GroupMemberBindRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    member = (
+        db.query(User)
+        .filter(User.id == member_id, User.referral_id == current_user.id)
+        .first()
+    )
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    app_key = (data.app_key or "").strip() or None
+    if app_key:
+        tenant = (
+            db.query(Tenant)
+            .filter(
+                Tenant.app_key == app_key,
+                Tenant.user_id == current_user.id,
+                Tenant.status == TenantStatus.ACTIVE,
+            )
+            .first()
+        )
+        if not tenant:
+            raise HTTPException(
+                status_code=400, detail="AppKey not found or not active"
+            )
+
+    binding = (
+        db.query(GroupMemberAppBinding)
+        .filter(
+            GroupMemberAppBinding.owner_user_id == current_user.id,
+            GroupMemberAppBinding.member_id == member_id,
+        )
+        .first()
+    )
+    if binding:
+        binding.app_key = app_key
+    else:
+        binding = GroupMemberAppBinding(
+            owner_user_id=current_user.id,
+            member_id=member_id,
+            app_key=app_key,
+        )
+        db.add(binding)
+    db.commit()
+    return {"message": "Bind success"}
 
 
 # 供应商配置相关接口
@@ -237,36 +359,40 @@ async def create_provider_key(
 
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    if str(getattr(tenant.status, "value", tenant.status)).upper() != "ACTIVE":
+        raise HTTPException(status_code=400, detail="Tenant is inactive")
 
-    # 检查是否已存在配置
     existing_key = (
         db.query(ProviderKey)
-        .filter(
-            ProviderKey.app_key == app_key,
-            ProviderKey.provider_id == key_data.provider_id,
-        )
+        .filter(ProviderKey.app_key == app_key)
+        .order_by(ProviderKey.updated_at.desc(), ProviderKey.created_at.desc())
         .first()
     )
-
     if existing_key:
-        # 更新现有配置
+        existing_key.provider_id = key_data.provider_id
         existing_key.api_key = key_data.api_key
         existing_key.model_name = key_data.model_name
+        duplicate_keys = (
+            db.query(ProviderKey)
+            .filter(ProviderKey.app_key == app_key, ProviderKey.id != existing_key.id)
+            .all()
+        )
+        for duplicate in duplicate_keys:
+            db.delete(duplicate)
         db.commit()
         db.refresh(existing_key)
         return existing_key
-    else:
-        # 创建新配置
-        provider_key = ProviderKey(
-            app_key=app_key,
-            provider_id=key_data.provider_id,
-            api_key=key_data.api_key,
-            model_name=key_data.model_name,
-        )
-        db.add(provider_key)
-        db.commit()
-        db.refresh(provider_key)
-        return provider_key
+
+    provider_key = ProviderKey(
+        app_key=app_key,
+        provider_id=key_data.provider_id,
+        api_key=key_data.api_key,
+        model_name=key_data.model_name,
+    )
+    db.add(provider_key)
+    db.commit()
+    db.refresh(provider_key)
+    return provider_key
 
 
 @router.get(
@@ -288,7 +414,13 @@ async def list_provider_keys(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    keys = db.query(ProviderKey).filter(ProviderKey.app_key == app_key).all()
+    keys = (
+        db.query(ProviderKey)
+        .filter(ProviderKey.app_key == app_key)
+        .order_by(ProviderKey.updated_at.desc(), ProviderKey.created_at.desc())
+        .limit(1)
+        .all()
+    )
     return keys
 
 

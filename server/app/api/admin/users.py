@@ -12,7 +12,7 @@ router = APIRouter()
 class UserResponse(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str]
     phone: Optional[str]
     real_name: Optional[str]
     role: str
@@ -45,7 +45,7 @@ async def list_users(
         UserResponse(
             id=user.id,
             username=user.username,
-            email=user.email,
+            email=getattr(user, "email", None),
             phone=user.phone,
             real_name=user.real_name,
             role=user.role,
@@ -73,7 +73,7 @@ async def get_user_detail(
     return UserDetailResponse(
         id=user.id,
         username=user.username,
-        email=user.email,
+        email=getattr(user, "email", None),
         phone=user.phone,
         real_name=user.real_name,
         role=user.role,

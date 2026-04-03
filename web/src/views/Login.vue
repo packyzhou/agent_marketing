@@ -90,7 +90,12 @@ const handleLogin = async () => {
   try {
     const res = await api.post('/auth/login', loginForm.value)
     localStorage.setItem('token', res.access_token)
+    localStorage.setItem('role', (res.role || 'USER').toUpperCase())
     ElMessage.success('登录成功')
+    if ((res.role || '').toUpperCase() === 'ADMIN') {
+      router.push('/admin/providers')
+      return
+    }
     router.push('/user/dashboard')
   } catch (error) {
     ElMessage.error(getErrorMessage(error, '登录失败'))

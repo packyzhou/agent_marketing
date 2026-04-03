@@ -65,8 +65,22 @@ CREATE TABLE IF NOT EXISTS tb_provider_key (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_app_key (app_key),
     INDEX idx_provider_id (provider_id),
-    UNIQUE KEY uk_app_provider (app_key, provider_id)
+    UNIQUE KEY uk_app_key (app_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商密钥表';
+
+-- 分组成员与AppKey绑定表
+CREATE TABLE IF NOT EXISTS tb_group_member_app_binding (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    owner_user_id BIGINT NOT NULL COMMENT '所有者用户ID',
+    member_id BIGINT NOT NULL COMMENT '成员用户ID',
+    app_key VARCHAR(64) DEFAULT NULL COMMENT '绑定的AppKey',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_owner_user_id (owner_user_id),
+    INDEX idx_member_id (member_id),
+    INDEX idx_binding_app_key (app_key),
+    UNIQUE KEY uk_owner_member (owner_user_id, member_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分组成员AppKey绑定表';
 
 -- Token汇总表
 CREATE TABLE IF NOT EXISTS tb_token_summary (

@@ -27,3 +27,14 @@ class Group(Base):
     group_name = Column(String(100), nullable=False)
     owner_id = Column(BigInteger, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class GroupMemberAppBinding(Base):
+    __tablename__ = "tb_group_member_app_binding"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    owner_user_id = Column(BigInteger, nullable=False, index=True)
+    member_id = Column(BigInteger, nullable=False, index=True)
+    app_key = Column(String(64), nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

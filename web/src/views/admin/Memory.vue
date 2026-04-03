@@ -12,10 +12,13 @@
           <el-tag v-if="row.has_digest_file" type="primary" size="small" class="ml-1">Digest</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120">
+      <el-table-column label="操作" width="220">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="viewMemory(row)">
             查看详情
+          </el-button>
+          <el-button type="danger" size="small" @click="clearMemory(row)">
+            清理KV和Digest
           </el-button>
         </template>
       </el-table-column>
@@ -49,7 +52,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const memories = ref([])
 const detailVisible = ref(false)
@@ -77,6 +80,35 @@ const viewMemory = async (memory) => {
     activeTab.value = 'kv'
   } catch (error) {
     ElMessage.error('加载记忆详情失败')
+  }
+}
+
+const clearMemory = async (memory) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认清理 AppKey=${memory.app_key} 的 KV 和 Digest 文件内容吗？`,
+      '清理确认',
+      {
+        confirmButtonText: '确认清理',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    await axios.post(`/api/admin/memory/${memory.app_key}/clear`, {}, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+    ElMessage.success('清理成功')
+    if (selectedMemory.value && selectedMemory.value.app_key === memory.app_key) {
+      selectedMemory.value.kv_content = ''
+      selectedMemory.value.digest_content = ''
+      selectedMemory.value.rounds_count = 0
+    }
+    loadMemories()
+  } catch (error) {
+    if (error === 'cancel') {
+      return
+    }
+    ElMessage.error('清理失败')
   }
 }
 

@@ -2,11 +2,14 @@
   <div>
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-2xl font-bold">租户管理</h2>
-      <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 150px">
-        <el-option label="全部" value="" />
-        <el-option label="启用" value="active" />
-        <el-option label="禁用" value="inactive" />
-      </el-select>
+      <div class="flex gap-2">
+        <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 150px">
+          <el-option label="全部" value="" />
+          <el-option label="启用" value="active" />
+          <el-option label="禁用" value="inactive" />
+        </el-select>
+        <el-button type="primary" @click="openCreateDialog">创建租户</el-button>
+      </div>
     </div>
 
     <el-table :data="tenants" border stripe>
@@ -22,14 +25,58 @@
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="120">
+      <el-table-column label="操作" width="320">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="viewDetail(row)">
             详情
           </el-button>
+          <el-button
+            type="info"
+            size="small"
+            :disabled="!isTenantActive(row)"
+            @click="configProvider(row)"
+          >
+            配置API
+          </el-button>
+          <el-button type="success" size="small" @click="openEditDialog(row)">修改</el-button>
+          <el-button
+            :type="row.status.toUpperCase() === 'ACTIVE' ? 'warning' : 'success'"
+            size="small"
+            @click="toggleTenantStatus(row)"
+          >
+            {{ row.status.toUpperCase() === 'ACTIVE' ? '禁用' : '启用' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="editVisible" :title="isCreateMode ? '创建租户' : '修改租户'" width="600px">
+      <el-form :model="editForm" label-width="100px">
+        <el-form-item label="所属用户">
+          <el-select v-model="editForm.user_id" filterable placeholder="请选择用户" style="width: 100%">
+            <el-option
+              v-for="item in userOptions"
+              :key="item.id"
+              :label="`${item.username}(${item.id})`"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="租户名称">
+          <el-input v-model="editForm.tenant_name" placeholder="请输入租户名称" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="editForm.status" style="width: 100%">
+            <el-option label="启用" value="ACTIVE" />
+            <el-option label="禁用" value="INACTIVE" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitTenant">{{ isCreateMode ? '创建' : '保存' }}</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="detailVisible" title="租户详情" width="700px">
       <div v-if="selectedTenant">
@@ -53,11 +100,65 @@
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="700px">
+      <div v-if="selectedTenantForProvider">
+        <el-button
+          type="primary"
+          size="small"
+          :disabled="providerKeys.length > 0"
+          @click="openAddProviderKey"
+          class="mb-4"
+        >
+          添加API配置
+        </el-button>
+        <el-table :data="providerKeys" border size="small">
+          <el-table-column prop="provider_name" label="供应商" width="120" />
+          <el-table-column prop="model_name" label="模型" width="150" />
+          <el-table-column prop="api_key" label="API Key" width="220">
+            <template #default="{ row }">
+              {{ row.api_key.substring(0, 10) }}...
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="创建时间" width="180" />
+          <el-table-column label="操作" width="100">
+            <template #default="{ row }">
+              <el-button size="small" type="danger" @click="deleteProviderKey(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="addKeyDialogVisible" title="添加API配置" width="600px">
+      <el-form :model="keyForm" label-width="100px">
+        <el-form-item label="供应商">
+          <el-select v-model="keyForm.provider_id" placeholder="选择供应商">
+            <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="配置指南" v-if="selectedProviderGuide">
+          <el-alert type="info" :closable="false">
+            <pre class="whitespace-pre-wrap text-sm">{{ selectedProviderGuide }}</pre>
+          </el-alert>
+        </el-form-item>
+        <el-form-item label="API Key">
+          <el-input v-model="keyForm.api_key" placeholder="请输入API Key" />
+        </el-form-item>
+        <el-form-item label="模型名称">
+          <el-input v-model="keyForm.model_name" placeholder="例如: qwen-plus" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="addKeyDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleAddProviderKey">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 
@@ -65,6 +166,35 @@ const tenants = ref([])
 const statusFilter = ref('')
 const detailVisible = ref(false)
 const selectedTenant = ref(null)
+const editVisible = ref(false)
+const isCreateMode = ref(true)
+const currentAppKey = ref('')
+const userOptions = ref([])
+const providers = ref([])
+const providerKeys = ref([])
+const providerDialogVisible = ref(false)
+const addKeyDialogVisible = ref(false)
+const selectedTenantForProvider = ref(null)
+const editForm = ref({
+  user_id: null,
+  tenant_name: '',
+  status: 'ACTIVE'
+})
+const keyForm = ref({
+  provider_id: null,
+  api_key: '',
+  model_name: ''
+})
+
+const selectedProviderGuide = computed(() => {
+  if (!keyForm.value.provider_id) return null
+  const provider = providers.value.find(p => p.id === keyForm.value.provider_id)
+  return provider?.config_guide || null
+})
+
+const isTenantActive = (tenant) => {
+  return (tenant?.status || '').toUpperCase() === 'ACTIVE'
+}
 
 const loadTenants = async () => {
   try {
@@ -80,12 +210,132 @@ const loadTenants = async () => {
 
 const viewDetail = async (tenant) => {
   try {
-    selectedTenant.value = await api.get(`/admin/tenants/${tenant.id}`)
+    selectedTenant.value = await api.get(`/admin/tenants/${tenant.app_key}`)
     detailVisible.value = true
   } catch (error) {
     ElMessage.error('加载租户详情失败')
   }
 }
 
-onMounted(loadTenants)
+const loadUsers = async () => {
+  try {
+    userOptions.value = await api.get('/admin/users', { params: { skip: 0, limit: 500 } })
+  } catch (error) {
+    ElMessage.error('加载用户列表失败')
+  }
+}
+
+const openCreateDialog = async () => {
+  isCreateMode.value = true
+  currentAppKey.value = ''
+  editForm.value = {
+    user_id: null,
+    tenant_name: '',
+    status: 'ACTIVE'
+  }
+  if (userOptions.value.length === 0) {
+    await loadUsers()
+  }
+  editVisible.value = true
+}
+
+const openEditDialog = async (row) => {
+  isCreateMode.value = false
+  currentAppKey.value = row.app_key
+  editForm.value = {
+    user_id: row.user_id,
+    tenant_name: row.tenant_name || '',
+    status: (row.status || 'ACTIVE').toUpperCase()
+  }
+  if (userOptions.value.length === 0) {
+    await loadUsers()
+  }
+  editVisible.value = true
+}
+
+const submitTenant = async () => {
+  if (!editForm.value.user_id) {
+    ElMessage.error('请选择所属用户')
+    return
+  }
+  try {
+    if (isCreateMode.value) {
+      await api.post('/admin/tenants', editForm.value)
+      ElMessage.success('创建成功')
+    } else {
+      await api.put(`/admin/tenants/${currentAppKey.value}`, editForm.value)
+      ElMessage.success('修改成功')
+    }
+    editVisible.value = false
+    loadTenants()
+  } catch (error) {
+    ElMessage.error(isCreateMode.value ? '创建失败' : '修改失败')
+  }
+}
+
+const toggleTenantStatus = async (row) => {
+  const currentStatus = (row.status || '').toUpperCase()
+  const nextStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+  try {
+    await api.put(`/admin/tenants/${row.app_key}`, { status: nextStatus })
+    ElMessage.success(nextStatus === 'ACTIVE' ? '启用成功' : '禁用成功')
+    loadTenants()
+  } catch (error) {
+    ElMessage.error(nextStatus === 'ACTIVE' ? '启用失败' : '禁用失败')
+  }
+}
+
+const loadProviders = async () => {
+  try {
+    const res = await api.get('/admin/providers', { params: { skip: 0, limit: 200, status: 'ACTIVE' } })
+    providers.value = res.items || []
+  } catch (error) {
+    ElMessage.error('加载供应商列表失败')
+  }
+}
+
+const configProvider = async (row) => {
+  if (!isTenantActive(row)) {
+    ElMessage.warning('租户已禁用，无法配置API')
+    return
+  }
+  selectedTenantForProvider.value = row
+  try {
+    providerKeys.value = await api.get(`/admin/tenants/${row.app_key}/provider-keys`)
+    providerDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('加载API配置失败')
+  }
+}
+
+const openAddProviderKey = () => {
+  keyForm.value = { provider_id: null, api_key: '', model_name: '' }
+  addKeyDialogVisible.value = true
+}
+
+const handleAddProviderKey = async () => {
+  try {
+    await api.post(`/admin/tenants/${selectedTenantForProvider.value.app_key}/provider-keys`, keyForm.value)
+    ElMessage.success('添加成功')
+    addKeyDialogVisible.value = false
+    configProvider(selectedTenantForProvider.value)
+  } catch (error) {
+    ElMessage.error('添加失败')
+  }
+}
+
+const deleteProviderKey = async (keyId) => {
+  try {
+    await api.delete(`/admin/tenants/${selectedTenantForProvider.value.app_key}/provider-keys/${keyId}`)
+    ElMessage.success('删除成功')
+    configProvider(selectedTenantForProvider.value)
+  } catch (error) {
+    ElMessage.error('删除失败')
+  }
+}
+
+onMounted(() => {
+  loadTenants()
+  loadProviders()
+})
 </script>

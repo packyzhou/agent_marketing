@@ -22,40 +22,40 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Phone number already registered")
 
     # 创建新用户
+    new_user_id = generate_snowflake_id()
     user = User(
-        id=generate_snowflake_id(),
+        id=new_user_id,
         username=user_data.username,
         password_hash=get_password_hash(user_data.password),
         phone=user_data.phone,
         real_name=user_data.real_name,
-        referral_id=user_data.referral_id
+        referral_id=None
     )
 
-    # 如果有推荐人，自动加入推荐人的分组
+    # 如果有推荐人，且推荐人存在，则自动加入推荐人的分组
     if user_data.referral_id:
         referrer = db.query(User).filter(User.id == user_data.referral_id).first()
-        if not referrer:
-            raise HTTPException(status_code=400, detail="Referrer not found")
-        if referrer.group_id:
-            # 推荐人已有分组，加入该分组
-            user.group_id = referrer.group_id
-        else:
-            # 推荐人没有分组，为推荐人创建分组
-            group = Group(
-                group_name=f"{referrer.username}的团队",
-                owner_id=referrer.id
-            )
-            db.add(group)
-            db.flush()  # 获取group.id
+        if referrer:
+            user.referral_id = user_data.referral_id
+            if referrer.group_id:
+                # 推荐人已有分组，加入该分组
+                user.group_id = referrer.group_id
+            else:
+                # 推荐人没有分组，为推荐人创建分组
+                group = Group(
+                    group_name=f"{referrer.username}的团队",
+                    owner_id=referrer.id
+                )
+                db.add(group)
+                db.flush()
+                referrer.group_id = group.id
+                user.group_id = group.id
 
-            # 更新推荐人和新用户的分组
-            referrer.group_id = group.id
-            user.group_id = group.id
-    else:
-        # 没有推荐人，为自己创建分组
+    if not user.group_id:
+        # 没有有效推荐人，为自己创建分组
         group = Group(
             group_name=f"{user_data.username}的团队",
-            owner_id=user.id
+            owner_id=new_user_id
         )
         db.add(group)
         db.flush()
@@ -76,4 +76,8 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         )
 
     access_token = create_access_token(data={"sub": user.id})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": user.role.value if hasattr(user.role, "value") else str(user.role),
+    }

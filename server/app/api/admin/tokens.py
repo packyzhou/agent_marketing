@@ -47,7 +47,11 @@ async def list_token_stats(
             total_tokens=summary.total_tokens,
             current_month_tokens=summary.current_month_tokens,
             last_month_tokens=summary.last_month_tokens,
-            monthly_change_percent=summary.monthly_change_percent
+            monthly_change_percent=(
+                ((summary.current_month_tokens - summary.last_month_tokens) / summary.last_month_tokens) * 100
+                if summary.last_month_tokens and summary.last_month_tokens > 0
+                else None
+            )
         )
         for summary, tenant in summaries
     ]

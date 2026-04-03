@@ -62,8 +62,11 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="chartVisible" title="30天Token使用趋势" width="800px">
-      <div ref="chartContainer" style="width: 100%; height: 400px;"></div>
+    <el-dialog v-model="chartVisible" title="30天Token使用趋势" width="900px">
+      <div class="text-lg font-medium mb-2">Token数量趋势图</div>
+      <div ref="tokenChartContainer" style="width: 100%; height: 320px;"></div>
+      <div class="text-lg font-medium mt-6 mb-2">请求次数趋势图</div>
+      <div ref="requestChartContainer" style="width: 100%; height: 320px;"></div>
     </el-dialog>
   </div>
 </template>
@@ -77,8 +80,17 @@ import * as echarts from 'echarts'
 const tokenStats = ref([])
 const summary = ref({})
 const chartVisible = ref(false)
-const chartContainer = ref(null)
-let chartInstance = null
+const tokenChartContainer = ref(null)
+const requestChartContainer = ref(null)
+let tokenChartInstance = null
+let requestChartInstance = null
+
+const formatDateLabel = (dateText) => {
+  if (!dateText || typeof dateText !== 'string') return ''
+  const parts = dateText.split('-')
+  if (parts.length !== 3) return dateText
+  return `${parts[1]}-${parts[2]}`
+}
 
 const loadTokenStats = async () => {
   try {
@@ -112,39 +124,34 @@ const viewChart = async (row) => {
     chartVisible.value = true
     await nextTick()
 
-    if (chartInstance) {
-      chartInstance.dispose()
+    if (tokenChartInstance) {
+      tokenChartInstance.dispose()
     }
+    if (requestChartInstance) {
+      requestChartInstance.dispose()
+    }
+    tokenChartInstance = echarts.init(tokenChartContainer.value)
+    requestChartInstance = echarts.init(requestChartContainer.value)
 
-    chartInstance = echarts.init(chartContainer.value)
-    const dates = response.data.map(item => item.date)
+    const dates = response.data.map(item => formatDateLabel(item.date))
     const tokens = response.data.map(item => item.token_count)
     const requests = response.data.map(item => item.request_count)
 
-    chartInstance.setOption({
+    tokenChartInstance.setOption({
       title: {
-        text: `${row.tenant_name || row.app_key} - 30天使用趋势`
+        text: `${row.tenant_name || row.app_key} - Token数量趋势`
       },
       tooltip: {
         trigger: 'axis'
-      },
-      legend: {
-        data: ['Token数量', '请求次数']
       },
       xAxis: {
         type: 'category',
         data: dates
       },
-      yAxis: [
-        {
-          type: 'value',
-          name: 'Token数量'
-        },
-        {
-          type: 'value',
-          name: '请求次数'
-        }
-      ],
+      yAxis: {
+        type: 'value',
+        name: 'Token数量'
+      },
       series: [
         {
           name: 'Token数量',
@@ -152,13 +159,32 @@ const viewChart = async (row) => {
           data: tokens,
           smooth: true,
           itemStyle: { color: '#00796B' }
-        },
+        }
+      ]
+    })
+
+    requestChartInstance.setOption({
+      title: {
+        text: `${row.tenant_name || row.app_key} - 请求次数趋势`
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        data: dates
+      },
+      yAxis: {
+        type: 'value',
+        name: '请求次数'
+      },
+      series: [
         {
           name: '请求次数',
-          type: 'bar',
-          yAxisIndex: 1,
+          type: 'line',
           data: requests,
-          itemStyle: { color: '#B2DFDB' }
+          smooth: true,
+          itemStyle: { color: '#3B82F6' }
         }
       ]
     })

@@ -37,6 +37,11 @@ const routes = [
         path: 'memory',
         name: 'AdminMemory',
         component: () => import('../views/admin/Memory.vue')
+      },
+      {
+        path: 'proxy-debug',
+        name: 'AdminProxyDebug',
+        component: () => import('../views/user/ProxyDebug.vue')
       }
     ]
   },

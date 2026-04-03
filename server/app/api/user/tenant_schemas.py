@@ -67,3 +67,14 @@ class GroupResponse(BaseModel):
 class GroupPageResponse(BaseModel):
     total: int
     items: List[GroupResponse]
+
+
+class GroupMemberResponse(BaseModel):
+    member_id: int
+    member_name: str
+    app_key: Optional[str]
+    app_key_status: Optional[str]
+
+
+class GroupMemberBindRequest(BaseModel):
+    app_key: Optional[str] = None

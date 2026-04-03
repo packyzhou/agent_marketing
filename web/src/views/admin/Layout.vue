@@ -14,6 +14,7 @@
           <el-menu-item index="/admin/providers">供应商管理</el-menu-item>
           <el-menu-item index="/admin/tokens">Token统计</el-menu-item>
           <el-menu-item index="/admin/memory">记忆查看</el-menu-item>
+          <el-menu-item index="/admin/proxy-debug">对话调试</el-menu-item>
         </el-menu>
       </aside>
       <main class="flex-1 bg-white p-6 rounded shadow">
@@ -30,6 +31,7 @@ const router = useRouter()
 
 const logout = () => {
   localStorage.removeItem('token')
+  localStorage.removeItem('role')
   router.push('/login')
 }
 </script>

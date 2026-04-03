@@ -29,8 +29,11 @@ def _resolve_provider_context(db: Session, app_key: str):
     tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=401, detail="Invalid app_key")
-    if str(tenant.status) != "TenantStatus.ACTIVE" and str(tenant.status) != "ACTIVE":
-        raise HTTPException(status_code=403, detail="Tenant is inactive")
+    tenant_status = (
+        tenant.status.value if hasattr(tenant.status, "value") else str(tenant.status)
+    )
+    if str(tenant_status).upper() != "ACTIVE":
+        raise HTTPException(status_code=401, detail="Tenant is inactive")
 
     provider_key = (
         db.query(ProviderKey)

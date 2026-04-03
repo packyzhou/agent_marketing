@@ -37,6 +37,13 @@ const selectedAppKey = ref(null)
 const chartRef = ref(null)
 let chartInstance = null
 
+const formatDateLabel = (dateText) => {
+  if (!dateText || typeof dateText !== 'string') return ''
+  const parts = dateText.split('-')
+  if (parts.length !== 3) return dateText
+  return `${parts[1]}-${parts[2]}`
+}
+
 const loadTenants = async () => {
   try {
     tenants.value = await api.get('/user/tenants')
@@ -62,7 +69,7 @@ const loadStatsAndChart = async () => {
     }
     chartInstance = echarts.init(chartRef.value)
     const daily = Array.isArray(response.daily) ? response.daily : []
-    const dates = daily.map(item => item.date)
+    const dates = daily.map(item => formatDateLabel(item.date))
     const tokens = daily.map(item => item.token_count)
     chartInstance.setOption({
       tooltip: {

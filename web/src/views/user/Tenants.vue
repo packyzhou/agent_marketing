@@ -14,10 +14,24 @@
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="250">
+      <el-table-column label="操作" width="360">
         <template #default="{ row }">
           <el-button size="small" type="primary" @click="viewDetail(row)">查看</el-button>
-          <el-button size="small" type="success" @click="configProvider(row)">配置API</el-button>
+          <el-button
+            size="small"
+            type="success"
+            :disabled="!isTenantActive(row)"
+            @click="configProvider(row)"
+          >
+            配置API
+          </el-button>
+          <el-button
+            size="small"
+            :type="row.status.toUpperCase() === 'ACTIVE' ? 'warning' : 'success'"
+            @click="toggleTenantStatus(row)"
+          >
+            {{ row.status.toUpperCase() === 'ACTIVE' ? '禁用' : '启用' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -60,7 +74,15 @@
 
     <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="700px">
       <div v-if="currentTenant">
-        <el-button type="primary" size="small" @click="openAddProviderKey" class="mb-4">添加API配置</el-button>
+        <el-button
+          type="primary"
+          size="small"
+          :disabled="providerKeys.length > 0"
+          @click="openAddProviderKey"
+          class="mb-4"
+        >
+          添加API配置
+        </el-button>
 
         <el-table :data="providerKeys" border size="small">
           <el-table-column prop="provider_name" label="供应商" width="120" />
@@ -138,6 +160,10 @@ const selectedProviderGuide = computed(() => {
   return provider?.config_guide || null
 })
 
+const isTenantActive = (tenant) => {
+  return (tenant?.status || '').toUpperCase() === 'ACTIVE'
+}
+
 const loadTenants = async () => {
   try {
     tenants.value = await api.get('/user/tenants')
@@ -187,6 +213,10 @@ const viewDetail = (row) => {
 }
 
 const configProvider = async (row) => {
+  if (!isTenantActive(row)) {
+    ElMessage.warning('租户已禁用，无法配置API')
+    return
+  }
   currentTenant.value = row
   try {
     providerKeys.value = await api.get(`/user/tenants/${row.app_key}/provider-keys`)
@@ -218,11 +248,22 @@ const handleAddProviderKey = async () => {
 
 const deleteProviderKey = async (keyId) => {
   try {
-    await api.delete(`/user/provider-keys/${keyId}`)
+    await api.delete(`/user/tenants/${currentTenant.value.app_key}/provider-keys/${keyId}`)
     ElMessage.success('删除成功')
     configProvider(currentTenant.value)
   } catch (error) {
     ElMessage.error('删除失败')
+  }
+}
+
+const toggleTenantStatus = async (row) => {
+  try {
+    const nextStatus = row.status.toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+    await api.put(`/user/tenants/${row.app_key}`, { status: nextStatus })
+    ElMessage.success(nextStatus === 'ACTIVE' ? '启用成功' : '禁用成功')
+    loadTenants()
+  } catch (error) {
+    ElMessage.error('状态更新失败')
   }
 }
 

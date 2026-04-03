@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="text-2xl font-bold mb-4">SSE转发调试</h2>
+    <h2 class="text-2xl font-bold mb-4">对话调试</h2>
 
     <el-card class="mb-4">
       <el-form :model="form" label-width="140px">
@@ -8,7 +8,14 @@
           <el-input v-model="form.apiUrl" placeholder="例如: http://127.0.0.1:8000/api/proxy/chat/completions/sse" />
         </el-form-item>
         <el-form-item label="AppKey">
-          <el-input v-model="form.appKey" placeholder="请输入 appKey" />
+          <el-select v-model="form.appKey" placeholder="请选择AppKey" filterable style="width: 100%">
+            <el-option
+              v-for="tenant in tenantOptions"
+              :key="tenant.app_key"
+              :label="tenant.app_key"
+              :value="tenant.app_key"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="模型(可选)">
           <el-input v-model="form.model" placeholder="不填则使用租户配置模型" />
@@ -50,8 +57,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import api from '../../api/request'
 
 const form = ref({
   apiUrl: `${window.location.origin}/api/proxy/chat/completions/sse`,
@@ -64,6 +72,7 @@ const loading = ref(false)
 const aiResponse = ref('')
 const requestInfo = ref(null)
 const errorInfo = ref(null)
+const tenantOptions = ref([])
 let abortController = null
 
 const displayRequest = computed(() => {
@@ -223,6 +232,21 @@ const sendMessage = async () => {
     abortController = null
   }
 }
+
+const loadTenantOptions = async () => {
+  try {
+    tenantOptions.value = await api.get('/user/tenants')
+    if (!form.value.appKey && tenantOptions.value.length > 0) {
+      form.value.appKey = tenantOptions.value[0].app_key
+    }
+  } catch (error) {
+    ElMessage.error('加载AppKey列表失败')
+  }
+}
+
+onMounted(() => {
+  loadTenantOptions()
+})
 </script>
 
 <style scoped>
