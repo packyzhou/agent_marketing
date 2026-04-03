@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy built files and proxy server
+COPY dist /app/dist
+COPY proxy_server.py /app/
+
+# Expose port
+EXPOSE 80
+
+# Run proxy server
+CMD ["python", "/app/proxy_server.py"]

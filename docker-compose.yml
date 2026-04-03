@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: mysql:latest
+    container_name: ai_agent_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ai_agent_platform
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ai_agent_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: ai_agent_backend
+    environment:
+      DATABASE_URL: mysql+pymysql://root:rootpassword@mysql:3306/ai_agent_platform
+      SECRET_KEY: your-secret-key-change-in-production-12345678
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai_agent_network
+    volumes:
+      - ./server/memory_files:/app/memory_files
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.simple
+    container_name: ai_agent_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - ai_agent_network
+    environment:
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  mysql_data:
+
+networks:
+  ai_agent_network:
+    driver: bridge

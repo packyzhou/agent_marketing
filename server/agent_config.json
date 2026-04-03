@@ -1,0 +1,18 @@
+{
+  "database": {
+    "host": "mysql",
+    "port": 3306,
+    "user": "root",
+    "password": "rootpassword",
+    "database": "ai_agent_platform"
+  },
+  "memory_processing": {
+    "rounds_threshold": 5,
+    "enable_auto_processing": true
+  },
+  "llm_config": {
+    "default_model": "qwen-plus",
+    "temperature": 0.7,
+    "max_tokens": 2000
+  }
+}
