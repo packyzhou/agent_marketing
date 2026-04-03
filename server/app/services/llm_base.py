@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, AsyncIterator
 import httpx
+import json
 
 class BaseLLM(ABC):
     def __init__(self, api_key: str, base_url: str):
@@ -36,12 +37,20 @@ class QwenLLM(BaseLLM):
             if stream:
                 async with client.stream("POST", f"{self.base_url}/chat/completions",
                                         headers=headers, json=payload) as response:
+                    response.raise_for_status()
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
-                            yield line[6:]
+                            data = line[6:].strip()
+                            if data == "[DONE]" or not data:
+                                continue
+                            try:
+                                yield json.loads(data)
+                            except json.JSONDecodeError:
+                                continue
             else:
                 response = await client.post(f"{self.base_url}/chat/completions",
                                             headers=headers, json=payload)
+                response.raise_for_status()
                 yield response.json()
 
     def count_tokens(self, text: str) -> int:

@@ -63,6 +63,11 @@ const routes = [
         path: 'tokens',
         name: 'UserTokens',
         component: () => import('../views/user/Tokens.vue')
+      },
+      {
+        path: 'proxy-debug',
+        name: 'UserProxyDebug',
+        component: () => import('../views/user/ProxyDebug.vue')
       }
     ]
   },

@@ -1,4 +1,5 @@
 -- 创建数据库
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS ai_agent_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE ai_agent_platform;
 
@@ -114,6 +115,6 @@ INSERT INTO tb_user (id, username, password_hash, real_name, role) VALUES
 
 -- 初始供应商
 INSERT INTO tb_provider (id, name, code, base_url, config_guide, status) VALUES
-(1, '阿里千问', 'qwen', 'https://dashscope.aliyuncs.com/api/v1', '1. 访问阿里云控制台\n2. 开通DashScope服务\n3. 创建API Key\n4. 填入下方API Key配置', 'ACTIVE'),
+(1, '阿里千问', 'qwen', 'https://dashscope.aliyuncs.com/compatible-mode/v1', '1. 访问阿里云控制台\n2. 开通DashScope服务\n3. 创建API Key\n4. 填入下方API Key配置', 'ACTIVE'),
 (2, '字节豆包', 'doubao', 'https://ark.cn-beijing.volces.com/api/v3', '1. 访问火山引擎控制台\n2. 开通豆包大模型服务\n3. 创建API Key\n4. 填入下方API Key配置', 'ACTIVE'),
 (3, 'Deepseek', 'deepseek', 'https://api.deepseek.com/v1', '1. 访问 platform.deepseek.com\n2. 注册并登录账号\n3. 在API Keys页面创建密钥\n4. 填入下方API Key配置', 'ACTIVE');

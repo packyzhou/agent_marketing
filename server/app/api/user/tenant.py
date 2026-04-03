@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from typing import List
 import secrets
 import json
@@ -149,7 +150,17 @@ async def list_providers(
     db: Session = Depends(get_db)
 ):
     """获取所有可用的供应商"""
-    providers = db.query(Provider).filter(Provider.status == "ACTIVE").all()
+    providers = db.query(Provider).filter(
+        and_(
+            Provider.status == "ACTIVE",
+            Provider.name.isnot(None),
+            Provider.code.isnot(None),
+            Provider.base_url.isnot(None),
+            Provider.name != "",
+            Provider.code != "",
+            Provider.base_url != ""
+        )
+    ).all()
     return providers
 
 @router.post("/tenants/{app_key}/provider-keys", response_model=ProviderKeyResponse)

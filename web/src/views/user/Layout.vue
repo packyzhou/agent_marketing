@@ -13,6 +13,7 @@
           <el-menu-item index="/user/tenants">我的租户</el-menu-item>
           <el-menu-item index="/user/group-tenants">分组租户</el-menu-item>
           <el-menu-item index="/user/tokens">Token统计</el-menu-item>
+          <el-menu-item index="/user/proxy-debug">SSE调试</el-menu-item>
         </el-menu>
       </aside>
       <main class="flex-1 bg-white p-6 rounded shadow">
