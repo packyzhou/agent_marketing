@@ -13,6 +13,8 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    phone = Column(String(20), nullable=True, index=True)
+    real_name = Column(String(50), nullable=True)
     referral_id = Column(BigInteger, nullable=True)
     group_id = Column(BigInteger, nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.USER)

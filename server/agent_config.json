@@ -8,11 +8,7 @@
   },
   "memory_processing": {
     "rounds_threshold": 5,
-    "enable_auto_processing": true
-  },
-  "llm_config": {
-    "default_model": "qwen-plus",
-    "temperature": 0.7,
-    "max_tokens": 2000
+    "enable_auto_processing": true,
+    "digest_rounds": 10
   }
 }

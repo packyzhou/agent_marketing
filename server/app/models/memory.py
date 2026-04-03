@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, BigInteger, Integer, DateTime
+from sqlalchemy import Column, String, Integer, DateTime
 from sqlalchemy.sql import func
 from ..core.database import Base
 
@@ -7,5 +7,6 @@ class MemoryMeta(Base):
 
     app_key = Column(String(64), primary_key=True, index=True)
     last_processed_round = Column(Integer, default=0)
-    file_path = Column(String(255), nullable=True)
+    kv_file_path = Column(String(255), nullable=True)
+    digest_file_path = Column(String(255), nullable=True)
     last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())

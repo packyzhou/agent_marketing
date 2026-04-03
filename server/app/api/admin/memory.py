@@ -1,0 +1,69 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+import os
+from ...core.database import get_db
+from ...core.deps import get_current_admin_user
+from ...models.user import User
+from ...models.memory import MemoryMeta
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class MemoryResponse(BaseModel):
+    app_key: str
+    kv_content: Optional[str]
+    digest_content: Optional[str]
+    rounds_count: int
+    last_processed_at: Optional[str]
+
+@router.get("/memory/{app_key}", response_model=MemoryResponse)
+async def get_memory(
+    app_key: str,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get memory files for a specific tenant"""
+    memory_meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
+    if not memory_meta:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    kv_content = None
+    digest_content = None
+
+    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
+        with open(memory_meta.kv_file_path, 'r', encoding='utf-8') as f:
+            kv_content = f.read()
+
+    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
+        with open(memory_meta.digest_file_path, 'r', encoding='utf-8') as f:
+            digest_content = f.read()
+
+    return MemoryResponse(
+        app_key=app_key,
+        kv_content=kv_content,
+        digest_content=digest_content,
+        rounds_count=memory_meta.rounds_count,
+        last_processed_at=memory_meta.last_processed_at.isoformat() if memory_meta.last_processed_at else None
+    )
+
+@router.get("/memory")
+async def list_all_memory(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """List all memory metadata"""
+    memories = db.query(MemoryMeta).offset(skip).limit(limit).all()
+
+    return [
+        {
+            "app_key": mem.app_key,
+            "rounds_count": mem.rounds_count,
+            "last_processed_at": mem.last_processed_at.isoformat() if mem.last_processed_at else None,
+            "has_kv_file": mem.kv_file_path and os.path.exists(mem.kv_file_path),
+            "has_digest_file": mem.digest_file_path and os.path.exists(mem.digest_file_path)
+        }
+        for mem in memories
+    ]

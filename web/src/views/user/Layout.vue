@@ -10,7 +10,9 @@
       <aside class="w-48 bg-white p-4 rounded shadow mr-4">
         <el-menu :default-active="$route.path" router>
           <el-menu-item index="/user/dashboard">数据中心</el-menu-item>
-          <el-menu-item index="/user/tenants">租户配置</el-menu-item>
+          <el-menu-item index="/user/tenants">我的租户</el-menu-item>
+          <el-menu-item index="/user/group-tenants">分组租户</el-menu-item>
+          <el-menu-item index="/user/tokens">Token统计</el-menu-item>
         </el-menu>
       </aside>
       <main class="flex-1 bg-white p-6 rounded shadow">

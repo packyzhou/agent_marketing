@@ -9,8 +9,11 @@
     <div class="container mx-auto mt-4 flex">
       <aside class="w-48 bg-white p-4 rounded shadow mr-4">
         <el-menu :default-active="$route.path" router>
+          <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/tenants">租户管理</el-menu-item>
           <el-menu-item index="/admin/providers">供应商管理</el-menu-item>
+          <el-menu-item index="/admin/tokens">Token统计</el-menu-item>
+          <el-menu-item index="/admin/memory">记忆查看</el-menu-item>
         </el-menu>
       </aside>
       <main class="flex-1 bg-white p-6 rounded shadow">

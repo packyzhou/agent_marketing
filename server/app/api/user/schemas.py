@@ -7,6 +7,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    phone: Optional[str] = None
+    real_name: Optional[str] = None
     referral_id: Optional[int] = None
 
 class UserLogin(BaseModel):
@@ -15,6 +17,8 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    phone: Optional[str]
+    real_name: Optional[str]
     role: str
     group_id: Optional[int]
     created_at: datetime

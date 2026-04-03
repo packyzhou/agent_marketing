@@ -14,6 +14,11 @@ const routes = [
     component: AdminLayout,
     children: [
       {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('../views/admin/Users.vue')
+      },
+      {
         path: 'tenants',
         name: 'AdminTenants',
         component: () => import('../views/admin/Tenants.vue')
@@ -22,6 +27,16 @@ const routes = [
         path: 'providers',
         name: 'AdminProviders',
         component: () => import('../views/admin/Providers.vue')
+      },
+      {
+        path: 'tokens',
+        name: 'AdminTokens',
+        component: () => import('../views/admin/Tokens.vue')
+      },
+      {
+        path: 'memory',
+        name: 'AdminMemory',
+        component: () => import('../views/admin/Memory.vue')
       }
     ]
   },
@@ -38,6 +53,16 @@ const routes = [
         path: 'tenants',
         name: 'UserTenants',
         component: () => import('../views/user/Tenants.vue')
+      },
+      {
+        path: 'group-tenants',
+        name: 'UserGroupTenants',
+        component: () => import('../views/user/GroupTenants.vue')
+      },
+      {
+        path: 'tokens',
+        name: 'UserTokens',
+        component: () => import('../views/user/Tokens.vue')
       }
     ]
   },
