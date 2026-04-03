@@ -26,16 +26,13 @@
               <el-input v-model="registerForm.username" placeholder="用户名" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="registerForm.email" placeholder="邮箱" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="registerForm.phone" placeholder="手机号（选填）" />
+              <el-input v-model="registerForm.phone" placeholder="手机号（必填）" />
             </el-form-item>
             <el-form-item>
               <el-input v-model="registerForm.real_name" placeholder="真实姓名（选填）" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="registerForm.password" type="password" placeholder="密码" />
+              <el-input v-model="registerForm.password" type="password" placeholder="密码（仅数字且大于6位）" />
             </el-form-item>
             <el-form-item>
               <el-input v-model="registerForm.referral_id" placeholder="推荐人ID（选填）" />
@@ -66,12 +63,28 @@ const loginForm = ref({
 })
 const registerForm = ref({
   username: '',
-  email: '',
   phone: '',
   real_name: '',
   password: '',
   referral_id: ''
 })
+
+const getErrorMessage = (error, fallback) => {
+  const detail = error?.response?.data?.detail
+  if (typeof detail === 'string' && detail) {
+    return detail
+  }
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    if (typeof first === 'string') {
+      return first
+    }
+    if (first?.msg) {
+      return first.msg
+    }
+  }
+  return fallback
+}
 
 const handleLogin = async () => {
   try {
@@ -80,17 +93,55 @@ const handleLogin = async () => {
     ElMessage.success('登录成功')
     router.push('/user/dashboard')
   } catch (error) {
-    ElMessage.error('登录失败')
+    ElMessage.error(getErrorMessage(error, '登录失败'))
   }
 }
 
 const handleRegister = async () => {
+  const username = registerForm.value.username.trim()
+  const phone = registerForm.value.phone.trim()
+  const password = registerForm.value.password.trim()
+  const realName = registerForm.value.real_name.trim()
+  const referralText = registerForm.value.referral_id.trim()
+
+  if (!username || !phone || !password) {
+    ElMessage.error('手机号、用户名、密码为必填项')
+    return
+  }
+
+  if (!/^\d+$/.test(password) || password.length <= 6) {
+    ElMessage.error('密码必须为大于6位的纯数字')
+    return
+  }
+
+  let referralId = null
+  if (referralText) {
+    referralId = Number(referralText)
+    if (!Number.isInteger(referralId) || referralId <= 0) {
+      ElMessage.error('推荐人ID必须为正整数')
+      return
+    }
+  }
+
   try {
-    await api.post('/auth/register', registerForm.value)
+    await api.post('/auth/register', {
+      username,
+      phone,
+      password,
+      real_name: realName || null,
+      referral_id: referralId
+    })
     ElMessage.success('注册成功，请登录')
+    registerForm.value = {
+      username: '',
+      phone: '',
+      real_name: '',
+      password: '',
+      referral_id: ''
+    }
     activeTab.value = 'login'
   } catch (error) {
-    ElMessage.error('注册失败')
+    ElMessage.error(getErrorMessage(error, '注册失败'))
   }
 }
 </script>

@@ -34,22 +34,23 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # 如果有推荐人，自动加入推荐人的分组
     if user_data.referral_id:
         referrer = db.query(User).filter(User.id == user_data.referral_id).first()
-        if referrer:
-            if referrer.group_id:
-                # 推荐人已有分组，加入该分组
-                user.group_id = referrer.group_id
-            else:
-                # 推荐人没有分组，为推荐人创建分组
-                group = Group(
-                    group_name=f"{referrer.username}的团队",
-                    owner_id=referrer.id
-                )
-                db.add(group)
-                db.flush()  # 获取group.id
+        if not referrer:
+            raise HTTPException(status_code=400, detail="Referrer not found")
+        if referrer.group_id:
+            # 推荐人已有分组，加入该分组
+            user.group_id = referrer.group_id
+        else:
+            # 推荐人没有分组，为推荐人创建分组
+            group = Group(
+                group_name=f"{referrer.username}的团队",
+                owner_id=referrer.id
+            )
+            db.add(group)
+            db.flush()  # 获取group.id
 
-                # 更新推荐人和新用户的分组
-                referrer.group_id = group.id
-                user.group_id = group.id
+            # 更新推荐人和新用户的分组
+            referrer.group_id = group.id
+            user.group_id = group.id
     else:
         # 没有推荐人，为自己创建分组
         group = Group(

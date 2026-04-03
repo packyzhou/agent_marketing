@@ -1,7 +1,7 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from ..models.token import TokenSummary, TokenDaily
+from ..models.token import TokenSummary, TokenDaily, TokenConversation
 
 async def update_token_stats(db: Session, app_key: str, token_count: int, request_count: int = 1):
     """更新Token统计"""
@@ -65,37 +65,89 @@ async def update_token_stats(db: Session, app_key: str, token_count: int, reques
 
     db.commit()
 
+
+async def save_conversation_token_usage(
+    db: Session,
+    app_key: str,
+    round_number: int,
+    provider_name: str,
+    model_name: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+):
+    usage = TokenConversation(
+        app_key=app_key,
+        round_number=round_number,
+        provider_name=provider_name,
+        model_name=model_name,
+        prompt_tokens=max(int(prompt_tokens or 0), 0),
+        completion_tokens=max(int(completion_tokens or 0), 0),
+        total_tokens=max(int(total_tokens or 0), 0),
+    )
+    db.add(usage)
+    db.commit()
+
 async def get_token_stats(db: Session, app_key: str, days: int = 30):
     """获取Token统计数据"""
-    # 获取最近N天的统计
     start_date = date.today() - timedelta(days=days - 1)
     daily_stats = db.query(TokenDaily).filter(
         TokenDaily.app_key == app_key,
         TokenDaily.date >= start_date
     ).order_by(TokenDaily.date.asc()).all()
-
-    # 获取总统计
     summary = db.query(TokenSummary).filter(TokenSummary.app_key == app_key).first()
-
-    # 计算月同比
     month_comparison = 0
     if summary and summary.last_month_tokens > 0:
         month_comparison = ((summary.current_month_tokens - summary.last_month_tokens)
                           / summary.last_month_tokens * 100)
+
+    daily_usage_rows = (
+        db.query(
+            func.date(TokenConversation.created_at).label("usage_date"),
+            func.sum(TokenConversation.prompt_tokens).label("prompt_tokens"),
+            func.sum(TokenConversation.completion_tokens).label("completion_tokens"),
+        )
+        .filter(
+            TokenConversation.app_key == app_key,
+            func.date(TokenConversation.created_at) >= start_date
+        )
+        .group_by(func.date(TokenConversation.created_at))
+        .all()
+    )
+    daily_usage_map = {
+        str(row.usage_date): {
+            "prompt_tokens": int(row.prompt_tokens or 0),
+            "completion_tokens": int(row.completion_tokens or 0),
+        }
+        for row in daily_usage_rows
+    }
+
+    total_usage = (
+        db.query(
+            func.sum(TokenConversation.prompt_tokens).label("prompt_tokens"),
+            func.sum(TokenConversation.completion_tokens).label("completion_tokens"),
+        )
+        .filter(TokenConversation.app_key == app_key)
+        .first()
+    )
 
     return {
         "daily": [
             {
                 "date": str(stat.date),
                 "token_count": stat.token_count,
-                "request_count": stat.request_count
+                "request_count": stat.request_count,
+                "prompt_tokens": daily_usage_map.get(str(stat.date), {}).get("prompt_tokens", 0),
+                "completion_tokens": daily_usage_map.get(str(stat.date), {}).get("completion_tokens", 0),
             }
             for stat in daily_stats
         ],
         "total_tokens": summary.total_tokens if summary else 0,
+        "total_prompt_tokens": int(total_usage.prompt_tokens or 0) if total_usage else 0,
+        "total_completion_tokens": int(total_usage.completion_tokens or 0) if total_usage else 0,
         "current_month_tokens": summary.current_month_tokens if summary else 0,
         "last_month_tokens": summary.last_month_tokens if summary else 0,
-        "month_comparison": round(month_comparison, 2)
+        "month_comparison": round(month_comparison, 2),
     }
 
 async def get_group_token_stats(db: Session, app_keys: list, days: int = 30):

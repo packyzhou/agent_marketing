@@ -56,3 +56,14 @@ class ProviderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class GroupResponse(BaseModel):
+    id: int
+    group_name: str
+    owner_id: int
+    member_count: int
+    created_at: datetime
+
+class GroupPageResponse(BaseModel):
+    total: int
+    items: List[GroupResponse]

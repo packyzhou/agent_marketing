@@ -20,3 +20,17 @@ class TokenDaily(Base):
     token_count = Column(BigInteger, default=0)
     request_count = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class TokenConversation(Base):
+    __tablename__ = "tb_token_conversation"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    app_key = Column(String(64), nullable=False, index=True)
+    round_number = Column(Integer, nullable=False, index=True)
+    provider_name = Column(String(128))
+    model_name = Column(String(128))
+    prompt_tokens = Column(BigInteger, default=0)
+    completion_tokens = Column(BigInteger, default=0)
+    total_tokens = Column(BigInteger, default=0)
+    created_at = Column(DateTime, server_default=func.now(), index=True)

@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+import asyncio
 from ...core.database import get_db
 from ...models.tenant import Tenant
 from ...models.provider import ProviderKey, Provider
 from ...models.conversation import Conversation
 from ...services.llm_factory import get_llm_client
-from ...services.token_service import update_token_stats
+from ...services.token_service import update_token_stats, save_conversation_token_usage
 from ...services.memory_service import load_memory, should_process_memory
 import json
 import httpx
@@ -66,6 +67,64 @@ async def _save_conversation(
     return round_number
 
 
+def _parse_usage_dict(usage: dict) -> tuple[int, int, int]:
+    if not isinstance(usage, dict):
+        return 0, 0, 0
+
+    prompt_tokens_raw = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+    completion_tokens_raw = usage.get(
+        "completion_tokens", usage.get("output_tokens", 0)
+    )
+    total_tokens_raw = usage.get("total_tokens", 0)
+    try:
+        prompt_tokens = int(prompt_tokens_raw or 0)
+    except (TypeError, ValueError):
+        prompt_tokens = 0
+    try:
+        completion_tokens = int(completion_tokens_raw or 0)
+    except (TypeError, ValueError):
+        completion_tokens = 0
+    try:
+        total_tokens = int(total_tokens_raw or 0)
+    except (TypeError, ValueError):
+        total_tokens = 0
+    if total_tokens <= 0:
+        total_tokens = prompt_tokens + completion_tokens
+    return int(prompt_tokens), int(completion_tokens), int(total_tokens)
+
+
+def _extract_openai_usage(payload: dict) -> tuple[int, int, int]:
+    if not isinstance(payload, dict):
+        return 0, 0, 0
+
+    usage = payload.get("usage")
+    if isinstance(usage, dict):
+        return _parse_usage_dict(usage)
+
+    if isinstance(payload.get("message"), dict):
+        message_usage = payload["message"].get("usage")
+        if isinstance(message_usage, dict):
+            return _parse_usage_dict(message_usage)
+
+    return 0, 0, 0
+
+
+def _estimate_prompt_tokens(llm_client, messages: list) -> int:
+    content_list = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            content_list.append(content)
+        elif isinstance(content, list):
+            content_list.extend([str(item) for item in content])
+        elif content is not None:
+            content_list.append(str(content))
+    joined = "\n".join(content_list)
+    return max(int(llm_client.count_tokens(joined)), 0) if joined else 0
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
@@ -84,16 +143,52 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
 
     llm_client = get_llm_client(provider.name, provider_key.api_key, provider.base_url)
     total_tokens = 0
+    prompt_tokens = 0
+    completion_tokens = 0
     ai_response = ""
+    persisted = False
+
+    async def persist_usage():
+        nonlocal total_tokens, prompt_tokens, completion_tokens, persisted
+        if persisted:
+            return
+        if completion_tokens <= 0:
+            completion_tokens = (
+                max(int(llm_client.count_tokens(ai_response)), 0) if ai_response else 0
+            )
+        if prompt_tokens <= 0:
+            prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
+        if total_tokens <= 0:
+            total_tokens = prompt_tokens + completion_tokens
+        if total_tokens <= 0:
+            return
+        await update_token_stats(db, app_key, total_tokens)
+        user_message = messages[-1].get("content", "") if messages else ""
+        round_number = await _save_conversation(db, app_key, user_message, ai_response)
+        await save_conversation_token_usage(
+            db=db,
+            app_key=app_key,
+            round_number=round_number,
+            provider_name=provider.name,
+            model_name=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        await should_process_memory(db, app_key, round_number)
+        persisted = True
 
     async def generate():
-        nonlocal total_tokens, ai_response
+        nonlocal total_tokens, prompt_tokens, completion_tokens, ai_response
+        prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
         try:
             async for chunk in llm_client.chat_completion(messages, model, True):
-                usage = chunk.get("usage") if isinstance(chunk, dict) else {}
-                if not isinstance(usage, dict):
-                    usage = {}
-                total_tokens += usage.get("total_tokens", 0)
+                usage_prompt, usage_completion, usage_total = _extract_openai_usage(
+                    chunk
+                )
+                prompt_tokens = max(prompt_tokens, usage_prompt)
+                completion_tokens = max(completion_tokens, usage_completion)
+                total_tokens = max(total_tokens, usage_total)
                 choices = chunk.get("choices", []) if isinstance(chunk, dict) else []
                 if len(choices) > 0:
                     first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -121,15 +216,16 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             yield "data: [DONE]\n\n"
             return
         except Exception as e:
+            await persist_usage()
             error_payload = {"error": {"type": "stream_error", "message": str(e)}}
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
+        except asyncio.CancelledError:
+            await persist_usage()
+            raise
 
-        await update_token_stats(db, app_key, total_tokens)
-        user_message = messages[-1].get("content", "") if messages else ""
-        round_number = await _save_conversation(db, app_key, user_message, ai_response)
-        await should_process_memory(db, app_key, round_number)
+        await persist_usage()
         yield "data: [DONE]\n\n"
 
     if stream:
@@ -144,11 +240,9 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             status_code=502, detail="Upstream provider returned empty response"
         )
 
-    usage = result.get("usage", {}) if isinstance(result, dict) else {}
-    if not isinstance(usage, dict):
-        usage = {}
-    total_tokens = usage.get("total_tokens", 0)
-    await update_token_stats(db, app_key, total_tokens)
+    prompt_tokens, completion_tokens, total_tokens = _extract_openai_usage(result)
+    if prompt_tokens <= 0:
+        prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
     user_message = messages[-1].get("content", "") if messages else ""
     choices = result.get("choices", []) if isinstance(result, dict) else []
     first_choice = choices[0] if choices and isinstance(choices[0], dict) else {}
@@ -158,7 +252,24 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     if not isinstance(message_obj, dict):
         message_obj = {}
     ai_response = message_obj.get("content", "")
+    if completion_tokens <= 0:
+        completion_tokens = (
+            max(int(llm_client.count_tokens(ai_response)), 0) if ai_response else 0
+        )
+    if total_tokens <= 0:
+        total_tokens = prompt_tokens + completion_tokens
+    await update_token_stats(db, app_key, total_tokens)
     round_number = await _save_conversation(db, app_key, user_message, ai_response)
+    await save_conversation_token_usage(
+        db=db,
+        app_key=app_key,
+        round_number=round_number,
+        provider_name=provider.name,
+        model_name=model,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+    )
     await should_process_memory(db, app_key, round_number)
     return result
 
