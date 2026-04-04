@@ -52,12 +52,14 @@
         <el-table-column prop="member_name" label="姓名" width="140" />
         <el-table-column prop="phone" label="手机号" width="160" />
         <el-table-column prop="referral_id" label="推荐人ID" width="180" />
-        <el-table-column prop="app_key" label="绑定AppKey" min-width="220" />
-        <el-table-column prop="app_key_status" label="AppKey状态" width="120">
+        <el-table-column label="绑定AppKey / 状态" min-width="240">
           <template #default="{ row }">
-            <el-tag v-if="row.app_key_status" :type="row.app_key_status === 'ACTIVE' ? 'success' : 'danger'">
-              {{ row.app_key_status === 'ACTIVE' ? '启用' : '禁用' }}
-            </el-tag>
+            <div v-if="row.app_key" class="space-y-2">
+              <div class="break-all text-xs leading-5 text-gray-600">{{ row.app_key }}</div>
+              <el-tag v-if="row.app_key_status" size="small" :type="row.app_key_status === 'ACTIVE' ? 'success' : 'danger'">
+                {{ row.app_key_status === 'ACTIVE' ? '启用' : '禁用' }}
+              </el-tag>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>

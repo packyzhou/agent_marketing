@@ -4,8 +4,12 @@
     <el-button type="primary" @click="openCreateDialog" class="mb-4">创建租户</el-button>
 
     <el-table :data="tenants" border stripe>
-      <el-table-column prop="app_key" label="AppKey" width="200" />
-      <el-table-column prop="tenant_name" label="租户名称" width="150" />
+      <el-table-column label="AppKey" min-width="240">
+        <template #default="{ row }">
+          <div class="break-all text-xs leading-5">{{ row.app_key }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="tenant_name" label="租户名称" min-width="150" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status.toUpperCase() === 'ACTIVE' ? 'success' : 'danger'">
@@ -36,17 +40,17 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="createDialogVisible" title="创建租户" width="600px">
+    <el-dialog v-model="createDialogVisible" title="创建租户" width="92vw" max-width="720px">
       <el-form :model="createForm" label-width="100px">
         <el-form-item label="租户名称">
           <el-input v-model="createForm.tenant_name" placeholder="请输入租户名称" />
         </el-form-item>
         <el-form-item label="绑定用户">
           <el-button size="small" @click="addBoundUser">添加用户</el-button>
-          <div v-for="(user, index) in createForm.bound_users" :key="index" class="mt-2 flex gap-2">
-            <el-input v-model="user.id" placeholder="用户ID" style="width: 100px" />
-            <el-input v-model="user.name" placeholder="姓名" style="width: 120px" />
-            <el-input v-model="user.phone" placeholder="手机号" style="width: 150px" />
+          <div v-for="(user, index) in createForm.bound_users" :key="index" class="mt-2 flex flex-wrap gap-2">
+            <el-input v-model="user.id" placeholder="用户ID" style="width: 140px" />
+            <el-input v-model="user.name" placeholder="姓名" style="width: 160px" />
+            <el-input v-model="user.phone" placeholder="手机号" style="width: 180px" />
             <el-button size="small" type="danger" @click="removeBoundUser(index)">删除</el-button>
           </div>
         </el-form-item>
@@ -57,14 +61,18 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailDialogVisible" title="租户详情" width="600px">
+    <el-dialog v-model="detailDialogVisible" title="租户详情" width="92vw" max-width="860px">
       <div v-if="currentTenant">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="AppKey">{{ currentTenant.app_key }}</el-descriptions-item>
-          <el-descriptions-item label="AppSecret">{{ currentTenant.app_secret }}</el-descriptions-item>
+        <el-descriptions :column="1" border class="tenant-detail-descriptions">
+          <el-descriptions-item label="AppKey">
+            <div class="break-all leading-6">{{ currentTenant.app_key }}</div>
+          </el-descriptions-item>
+          <el-descriptions-item label="AppSecret">
+            <div class="break-all leading-6">{{ currentTenant.app_secret }}</div>
+          </el-descriptions-item>
           <el-descriptions-item label="租户名称">{{ currentTenant.tenant_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ currentTenant.status }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间" :span="2">{{ currentTenant.created_at }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ currentTenant.created_at }}</el-descriptions-item>
         </el-descriptions>
         <p class="mt-4 text-sm text-gray-600">
           请妥善保管您的AppKey和AppSecret，用于调用API时的身份验证。
@@ -72,7 +80,7 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="700px">
+    <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="92vw" max-width="960px">
       <div v-if="currentTenant">
         <el-button
           type="primary"
@@ -85,14 +93,14 @@
         </el-button>
 
         <el-table :data="providerKeys" border size="small">
-          <el-table-column prop="provider_name" label="供应商" width="120" />
-          <el-table-column prop="model_name" label="模型" width="150" />
-          <el-table-column prop="api_key" label="API Key" width="200">
+          <el-table-column prop="provider_name" label="供应商" min-width="120" />
+          <el-table-column prop="model_name" label="模型" min-width="150" />
+          <el-table-column prop="api_key" label="API Key" min-width="220">
             <template #default="{ row }">
-              {{ row.api_key.substring(0, 10) }}...
+              <div class="break-all text-xs leading-5">{{ row.api_key }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="150" />
+          <el-table-column prop="created_at" label="创建时间" min-width="160" />
           <el-table-column label="操作" width="100">
             <template #default="{ row }">
               <el-button size="small" type="danger" @click="deleteProviderKey(row.id)">删除</el-button>
@@ -102,10 +110,10 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="addKeyDialogVisible" title="添加API配置" width="600px">
+    <el-dialog v-model="addKeyDialogVisible" title="添加API配置" width="92vw" max-width="760px">
       <el-form :model="keyForm" label-width="100px">
         <el-form-item label="供应商">
-          <el-select v-model="keyForm.provider_id" placeholder="选择供应商" @change="onProviderChange">
+          <el-select v-model="keyForm.provider_id" placeholder="选择供应商" @change="onProviderChange" style="width: 100%">
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
@@ -272,3 +280,9 @@ onMounted(() => {
   loadProviders()
 })
 </script>
+
+<style scoped>
+:deep(.tenant-detail-descriptions .el-descriptions__label) {
+  width: 120px;
+}
+</style>

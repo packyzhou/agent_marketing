@@ -188,16 +188,13 @@ async def list_tenants(
 async def list_group_tenants(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """获取当前用户分组下所有租户"""
-    if not current_user.group_id:
-        return []
-
-    # 查询分组内所有用户
-    group_users = db.query(User).filter(User.group_id == current_user.group_id).all()
-    user_ids = [user.id for user in group_users]
-
-    # 查询这些用户的所有租户
-    tenants = db.query(Tenant).filter(Tenant.user_id.in_(user_ids)).all()
+    """获取当前用户自己创建的租户"""
+    tenants = (
+        db.query(Tenant)
+        .filter(Tenant.user_id == current_user.id)
+        .order_by(Tenant.created_at.desc())
+        .all()
+    )
     return tenants
 
 
@@ -334,13 +331,21 @@ async def list_group_members(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    visible_group_id = _get_visible_group_id(db, current_user)
+    if visible_group_id is None:
+        return []
+
+    group = db.query(Group).filter(Group.id == visible_group_id).first()
+    if not group:
+        return []
+
     members = (
         db.query(User)
-        .filter(User.referral_id == current_user.id)
+        .filter(User.group_id == group.id, User.id != group.owner_id)
         .order_by(User.created_at.desc())
         .all()
     )
-    return _build_group_member_responses(db, members, current_user.id)
+    return _build_group_member_responses(db, members, group.owner_id)
 
 
 @router.get("/active-app-keys", response_model=List[TenantResponse])
@@ -364,9 +369,23 @@ async def bind_member_app_key(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    visible_group_id = _get_visible_group_id(db, current_user)
+    if visible_group_id is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group = db.query(Group).filter(Group.id == visible_group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if group.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group owner can bind AppKey")
+
     member = (
         db.query(User)
-        .filter(User.id == member_id, User.referral_id == current_user.id)
+        .filter(
+            User.id == member_id,
+            User.group_id == group.id,
+            User.id != group.owner_id,
+        )
         .first()
     )
     if not member:

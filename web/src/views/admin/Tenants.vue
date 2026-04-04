@@ -14,8 +14,12 @@
 
     <el-table :data="tenants" border stripe>
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="app_key" label="AppKey" width="200" />
-      <el-table-column prop="tenant_name" label="租户名称" width="150" />
+      <el-table-column label="AppKey" min-width="240">
+        <template #default="{ row }">
+          <div class="break-all text-xs leading-5">{{ row.app_key }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="tenant_name" label="租户名称" min-width="150" />
       <el-table-column prop="username" label="所属用户" width="120" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
@@ -50,18 +54,8 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="editVisible" :title="isCreateMode ? '创建租户' : '修改租户'" width="600px">
+    <el-dialog v-model="editVisible" :title="isCreateMode ? '创建租户' : '修改租户'" width="92vw" max-width="760px">
       <el-form :model="editForm" label-width="100px">
-        <el-form-item label="所属用户">
-          <el-select v-model="editForm.user_id" filterable placeholder="请选择用户" style="width: 100%">
-            <el-option
-              v-for="item in userOptions"
-              :key="item.id"
-              :label="`${item.username}(${item.id})`"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="租户名称">
           <el-input v-model="editForm.tenant_name" placeholder="请输入租户名称" />
         </el-form-item>
@@ -78,30 +72,34 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" title="租户详情" width="700px">
+    <el-dialog v-model="detailVisible" title="租户详情" width="92vw" max-width="960px">
       <div v-if="selectedTenant">
-        <el-descriptions :column="2" border>
+        <el-descriptions :column="1" border class="tenant-detail-descriptions">
           <el-descriptions-item label="ID">{{ selectedTenant.id }}</el-descriptions-item>
-          <el-descriptions-item label="AppKey">{{ selectedTenant.app_key }}</el-descriptions-item>
-          <el-descriptions-item label="AppSecret">{{ selectedTenant.app_secret }}</el-descriptions-item>
+          <el-descriptions-item label="AppKey">
+            <div class="break-all leading-6">{{ selectedTenant.app_key }}</div>
+          </el-descriptions-item>
+          <el-descriptions-item label="AppSecret">
+            <div class="break-all leading-6">{{ selectedTenant.app_secret }}</div>
+          </el-descriptions-item>
           <el-descriptions-item label="租户名称">{{ selectedTenant.tenant_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ selectedTenant.status }}</el-descriptions-item>
           <el-descriptions-item label="所属用户">{{ selectedTenant.username }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间" :span="2">{{ selectedTenant.created_at }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ selectedTenant.created_at }}</el-descriptions-item>
         </el-descriptions>
 
         <div class="mt-4" v-if="selectedTenant.bound_users && selectedTenant.bound_users.length > 0">
           <h3 class="font-bold mb-2">绑定用户</h3>
           <el-table :data="selectedTenant.bound_users" border size="small">
-            <el-table-column prop="id" label="用户ID" width="100" />
-            <el-table-column prop="name" label="姓名" width="120" />
+            <el-table-column prop="id" label="用户ID" min-width="140" />
+            <el-table-column prop="name" label="姓名" min-width="120" />
             <el-table-column prop="phone" label="手机号" />
           </el-table>
         </div>
       </div>
     </el-dialog>
 
-    <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="700px">
+    <el-dialog v-model="providerDialogVisible" title="配置供应商API" width="92vw" max-width="960px">
       <div v-if="selectedTenantForProvider">
         <el-button
           type="primary"
@@ -113,14 +111,14 @@
           添加API配置
         </el-button>
         <el-table :data="providerKeys" border size="small">
-          <el-table-column prop="provider_name" label="供应商" width="120" />
-          <el-table-column prop="model_name" label="模型" width="150" />
-          <el-table-column prop="api_key" label="API Key" width="220">
+          <el-table-column prop="provider_name" label="供应商" min-width="120" />
+          <el-table-column prop="model_name" label="模型" min-width="150" />
+          <el-table-column prop="api_key" label="API Key" min-width="240">
             <template #default="{ row }">
-              {{ row.api_key.substring(0, 10) }}...
+              <div class="break-all text-xs leading-5">{{ row.api_key }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="180" />
+          <el-table-column prop="created_at" label="创建时间" min-width="180" />
           <el-table-column label="操作" width="100">
             <template #default="{ row }">
               <el-button size="small" type="danger" @click="deleteProviderKey(row.id)">删除</el-button>
@@ -130,10 +128,10 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="addKeyDialogVisible" title="添加API配置" width="600px">
+    <el-dialog v-model="addKeyDialogVisible" title="添加API配置" width="92vw" max-width="760px">
       <el-form :model="keyForm" label-width="100px">
         <el-form-item label="供应商">
-          <el-select v-model="keyForm.provider_id" placeholder="选择供应商">
+          <el-select v-model="keyForm.provider_id" placeholder="选择供应商" style="width: 100%">
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
@@ -169,14 +167,12 @@ const selectedTenant = ref(null)
 const editVisible = ref(false)
 const isCreateMode = ref(true)
 const currentAppKey = ref('')
-const userOptions = ref([])
 const providers = ref([])
 const providerKeys = ref([])
 const providerDialogVisible = ref(false)
 const addKeyDialogVisible = ref(false)
 const selectedTenantForProvider = ref(null)
 const editForm = ref({
-  user_id: null,
   tenant_name: '',
   status: 'ACTIVE'
 })
@@ -221,24 +217,12 @@ const viewDetail = async (tenant) => {
   }
 }
 
-const loadUsers = async () => {
-  try {
-    userOptions.value = await api.get('/admin/users', { params: { skip: 0, limit: 500 } })
-  } catch (error) {
-    ElMessage.error('加载用户列表失败')
-  }
-}
-
 const openCreateDialog = async () => {
   isCreateMode.value = true
   currentAppKey.value = ''
   editForm.value = {
-    user_id: null,
     tenant_name: '',
     status: 'ACTIVE'
-  }
-  if (userOptions.value.length === 0) {
-    await loadUsers()
   }
   editVisible.value = true
 }
@@ -247,21 +231,13 @@ const openEditDialog = async (row) => {
   isCreateMode.value = false
   currentAppKey.value = row.app_key
   editForm.value = {
-    user_id: row.user_id,
     tenant_name: row.tenant_name || '',
     status: (row.status || 'ACTIVE').toUpperCase()
-  }
-  if (userOptions.value.length === 0) {
-    await loadUsers()
   }
   editVisible.value = true
 }
 
 const submitTenant = async () => {
-  if (!editForm.value.user_id) {
-    ElMessage.error('请选择所属用户')
-    return
-  }
   try {
     if (isCreateMode.value) {
       await api.post('/admin/tenants', editForm.value)
@@ -343,3 +319,9 @@ onMounted(() => {
   loadProviders()
 })
 </script>
+
+<style scoped>
+:deep(.tenant-detail-descriptions .el-descriptions__label) {
+  width: 120px;
+}
+</style>

@@ -212,7 +212,11 @@ async def list_tenant_provider_keys(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
+    tenant = (
+        db.query(Tenant)
+        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
+        .first()
+    )
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     records = (
@@ -243,7 +247,11 @@ async def create_tenant_provider_key(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
+    tenant = (
+        db.query(Tenant)
+        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
+        .first()
+    )
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     if str(getattr(tenant.status, "value", tenant.status)).upper() != "ACTIVE":
@@ -313,6 +321,13 @@ async def delete_tenant_provider_key(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
+    tenant = (
+        db.query(Tenant)
+        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
+        .first()
+    )
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
     key = (
         db.query(ProviderKey)
         .filter(ProviderKey.id == key_id, ProviderKey.app_key == app_key)
