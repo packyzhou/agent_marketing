@@ -6,12 +6,22 @@ from ...core.database import get_db
 from ...core.deps import get_current_admin_user
 from ...models.user import User
 from ...models.memory import MemoryMeta
+from ...models.tenant import Tenant
 from pydantic import BaseModel
 
 router = APIRouter()
 
+class MemoryListResponse(BaseModel):
+    app_key: str
+    tenant_name: Optional[str]
+    rounds_count: int
+    last_processed_at: Optional[str]
+    has_kv_file: bool
+    has_digest_file: bool
+
 class MemoryResponse(BaseModel):
     app_key: str
+    tenant_name: Optional[str]
     kv_content: Optional[str]
     digest_content: Optional[str]
     rounds_count: int
@@ -27,6 +37,7 @@ async def get_memory(
     memory_meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
     if not memory_meta:
         raise HTTPException(status_code=404, detail="Memory not found")
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
 
     kv_content = None
     digest_content = None
@@ -41,13 +52,14 @@ async def get_memory(
 
     return MemoryResponse(
         app_key=app_key,
+        tenant_name=tenant.tenant_name if tenant else None,
         kv_content=kv_content,
         digest_content=digest_content,
         rounds_count=memory_meta.last_processed_round or 0,
         last_processed_at=memory_meta.last_updated.isoformat() if memory_meta.last_updated else None
     )
 
-@router.get("/memory")
+@router.get("/memory", response_model=list[MemoryListResponse])
 async def list_all_memory(
     skip: int = 0,
     limit: int = 100,
@@ -56,15 +68,21 @@ async def list_all_memory(
 ):
     """List all memory metadata"""
     memories = db.query(MemoryMeta).offset(skip).limit(limit).all()
+    app_keys = [mem.app_key for mem in memories]
+    tenant_map = {}
+    if app_keys:
+        tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
+        tenant_map = {tenant.app_key: tenant for tenant in tenants}
 
     return [
-        {
-            "app_key": mem.app_key,
-            "rounds_count": mem.last_processed_round or 0,
-            "last_processed_at": mem.last_updated.isoformat() if mem.last_updated else None,
-            "has_kv_file": mem.kv_file_path and os.path.exists(mem.kv_file_path),
-            "has_digest_file": mem.digest_file_path and os.path.exists(mem.digest_file_path)
-        }
+        MemoryListResponse(
+            app_key=mem.app_key,
+            tenant_name=tenant_map[mem.app_key].tenant_name if mem.app_key in tenant_map else None,
+            rounds_count=mem.last_processed_round or 0,
+            last_processed_at=mem.last_updated.isoformat() if mem.last_updated else None,
+            has_kv_file=bool(mem.kv_file_path and os.path.exists(mem.kv_file_path)),
+            has_digest_file=bool(mem.digest_file_path and os.path.exists(mem.digest_file_path))
+        )
         for mem in memories
     ]
 

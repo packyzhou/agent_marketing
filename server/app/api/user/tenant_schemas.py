@@ -58,9 +58,9 @@ class ProviderResponse(BaseModel):
         from_attributes = True
 
 class GroupResponse(BaseModel):
-    id: int
+    id: str
     group_name: str
-    owner_id: int
+    owner_id: str
     member_count: int
     can_manage: bool
     created_at: datetime
@@ -71,7 +71,7 @@ class GroupPageResponse(BaseModel):
 
 
 class GroupMemberResponse(BaseModel):
-    member_id: int
+    member_id: str
     username: str
     member_name: str
     phone: Optional[str]

@@ -4,8 +4,8 @@
       <h2 class="text-2xl font-bold">用户管理</h2>
       <el-select v-model="roleFilter" placeholder="筛选角色" clearable @change="loadUsers" style="width: 150px">
         <el-option label="全部" value="" />
-        <el-option label="管理员" value="admin" />
-        <el-option label="普通用户" value="user" />
+        <el-option label="管理员" value="ADMIN" />
+        <el-option label="普通用户" value="USER" />
       </el-select>
     </div>
 
@@ -17,8 +17,8 @@
       <el-table-column prop="real_name" label="真实姓名" width="100" />
       <el-table-column prop="role" label="角色" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.role === 'admin' ? 'danger' : 'primary'">
-            {{ row.role === 'admin' ? '管理员' : '用户' }}
+          <el-tag :type="row.role_type === 'ADMIN' ? 'danger' : 'primary'">
+            {{ row.role_name || row.role }}
           </el-tag>
         </template>
       </el-table-column>
@@ -65,8 +65,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import api from '../../api/request'
 
 const users = ref([])
 const currentPage = ref(1)
@@ -84,12 +84,9 @@ const loadUsers = async () => {
       params.role = roleFilter.value
     }
 
-    const response = await axios.get('/api/admin/users', {
-      params,
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    users.value = response.data
-    total.value = response.data.length
+    const response = await api.get('/admin/users', { params })
+    users.value = response.items || []
+    total.value = response.total || 0
   } catch (error) {
     ElMessage.error('加载用户列表失败')
   }
@@ -97,10 +94,7 @@ const loadUsers = async () => {
 
 const viewDetail = async (user) => {
   try {
-    const response = await axios.get(`/api/admin/users/${user.id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-    selectedUser.value = response.data
+    selectedUser.value = await api.get(`/admin/users/${user.id}`)
     detailVisible.value = true
   } catch (error) {
     ElMessage.error('加载用户详情失败')

@@ -1,11 +1,27 @@
-from sqlalchemy import Column, String, BigInteger, Integer, Text, DateTime, Date, Enum as SQLEnum
+from sqlalchemy import Column, String, BigInteger, Integer, Text, DateTime, Date, Boolean
 from sqlalchemy.sql import func
 from ..core.database import Base
 import enum
 
+class RoleType(str, enum.Enum):
+    ADMIN = "ADMIN"
+    USER = "USER"
+
+
 class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
     USER = "USER"
+
+
+class Role(Base):
+    __tablename__ = "tb_role"
+
+    code = Column(String(50), primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    role_type = Column(String(20), nullable=False, default=RoleType.USER.value)
+    description = Column(Text, nullable=True)
+    is_system = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
 
 class User(Base):
     __tablename__ = "tb_user"
@@ -17,7 +33,7 @@ class User(Base):
     real_name = Column(String(50), nullable=True)
     referral_id = Column(BigInteger, nullable=True)
     group_id = Column(BigInteger, nullable=True)
-    role = Column(SQLEnum(UserRole), default=UserRole.USER)
+    role = Column(String(50), nullable=False, default=UserRole.USER.value)
     created_at = Column(DateTime, server_default=func.now())
 
 class Group(Base):

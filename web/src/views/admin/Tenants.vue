@@ -198,11 +198,15 @@ const isTenantActive = (tenant) => {
 
 const loadTenants = async () => {
   try {
-    const params = {}
+    const params = {
+      skip: 0,
+      limit: 200
+    }
     if (statusFilter.value) {
       params.status = statusFilter.value
     }
-    tenants.value = await api.get('/admin/tenants', { params })
+    const response = await api.get('/admin/tenants', { params })
+    tenants.value = response.items || []
   } catch (error) {
     ElMessage.error('加载租户列表失败')
   }

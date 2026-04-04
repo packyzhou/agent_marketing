@@ -2,12 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from .api.user.auth import router as auth_router
+from .api.user.profile import router as profile_router
+from .api.user.memory import router as user_memory_router
 from .api.user.tenant import router as tenant_router
 from .api.user.stats import router as stats_router
 from .api.admin import router as admin_router
 from .api.proxy.chat import router as proxy_router
 from .core.database import engine, Base, SessionLocal
-from .models.user import User, UserRole
+from .models.user import User, UserRole, Role, RoleType
 from .models.provider import Provider
 
 Base.metadata.create_all(bind=engine)
@@ -15,6 +17,27 @@ Base.metadata.create_all(bind=engine)
 def init_db():
     db = SessionLocal()
     try:
+        default_roles = [
+            {
+                "code": UserRole.ADMIN.value,
+                "name": "管理员",
+                "role_type": RoleType.ADMIN.value,
+                "description": "系统管理员，拥有全部管理权限",
+                "is_system": True,
+            },
+            {
+                "code": UserRole.USER.value,
+                "name": "普通用户",
+                "role_type": RoleType.USER.value,
+                "description": "普通业务用户，仅查看自己名下数据",
+                "is_system": True,
+            },
+        ]
+        for item in default_roles:
+            existed_role = db.query(Role).filter(Role.code == item["code"]).first()
+            if not existed_role:
+                db.add(Role(**item))
+
         # 检查是否已有管理员
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
@@ -36,6 +59,10 @@ def init_db():
             for p in providers:
                 db.add(p)
             db.commit()
+        else:
+            if not admin.role:
+                admin.role = UserRole.ADMIN.value
+                db.commit()
     finally:
         db.close()
 
@@ -43,6 +70,22 @@ init_db()
 
 if not engine.url.drivername.startswith("sqlite"):
     with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_role (
+                code VARCHAR(50) PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                role_type VARCHAR(20) NOT NULL DEFAULT 'USER',
+                description TEXT NULL,
+                is_system BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            INSERT IGNORE INTO tb_role (code, name, role_type, description, is_system)
+            VALUES
+            ('ADMIN', '管理员', 'ADMIN', '系统管理员，拥有全部管理权限', TRUE),
+            ('USER', '普通用户', 'USER', '普通业务用户，仅查看自己名下数据', TRUE)
+        """))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS tb_group_member_app_binding (
                 id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -57,6 +100,18 @@ if not engine.url.drivername.startswith("sqlite"):
                 UNIQUE KEY uk_owner_member (owner_user_id, member_id)
             )
         """))
+        role_column_exists = conn.execute(text("""
+            SELECT COUNT(1)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'tb_user'
+              AND column_name = 'role'
+        """)).scalar()
+        if role_column_exists:
+            conn.execute(text("""
+                ALTER TABLE tb_user
+                MODIFY COLUMN role VARCHAR(50) NOT NULL DEFAULT 'USER'
+            """))
         conn.execute(text("""
             DELETE p1 FROM tb_provider_key p1
             INNER JOIN tb_provider_key p2
@@ -101,6 +156,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(profile_router, prefix="/api/user", tags=["profile"])
+app.include_router(user_memory_router, prefix="/api/user", tags=["user-memory"])
 app.include_router(tenant_router, prefix="/api/user", tags=["tenant"])
 app.include_router(stats_router, prefix="/api/user", tags=["stats"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])

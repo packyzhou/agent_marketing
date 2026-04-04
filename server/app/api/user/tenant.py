@@ -64,7 +64,7 @@ def _build_group_member_responses(
 
     return [
         GroupMemberResponse(
-            member_id=member.id,
+            member_id=str(member.id),
             username=member.username,
             member_name=member.real_name or member.username,
             phone=member.phone,
@@ -184,9 +184,9 @@ async def list_groups(
         )
         items.append(
             GroupResponse(
-                id=group.id,
+                id=str(group.id),
                 group_name=group.group_name,
-                owner_id=group.owner_id,
+                owner_id=str(group.owner_id),
                 member_count=member_count,
                 can_manage=group.owner_id == current_user.id,
                 created_at=group.created_at,

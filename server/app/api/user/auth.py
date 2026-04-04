@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ...core.database import get_db
+from ...core.deps import get_role_name, get_role_type
 from ...core.security import verify_password, get_password_hash, create_access_token
 from ...core.snowflake import generate_snowflake_id
 from ...models.user import User, Group
@@ -82,5 +83,8 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "role": user.role.value if hasattr(user.role, "value") else str(user.role),
+        "role": str(user.role),
+        "role_name": get_role_name(db, user.role),
+        "role_type": get_role_type(db, user.role),
+        "username": user.username,
     }

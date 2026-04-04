@@ -19,6 +19,11 @@ const routes = [
         component: () => import('../views/admin/Users.vue')
       },
       {
+        path: 'roles',
+        name: 'AdminRoles',
+        component: () => import('../views/admin/Roles.vue')
+      },
+      {
         path: 'groups',
         name: 'AdminGroups',
         component: () => import('../views/admin/Groups.vue')
@@ -80,6 +85,11 @@ const routes = [
         component: () => import('../views/user/Tokens.vue')
       },
       {
+        path: 'memory',
+        name: 'UserMemory',
+        component: () => import('../views/user/Memory.vue')
+      },
+      {
         path: 'proxy-debug',
         name: 'UserProxyDebug',
         component: () => import('../views/user/ProxyDebug.vue')
@@ -95,6 +105,28 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const roleType = (localStorage.getItem('roleType') || '').toUpperCase()
+
+  if (to.path === '/login') {
+    next()
+    return
+  }
+
+  if (!token) {
+    next('/login')
+    return
+  }
+
+  if (to.path.startsWith('/admin') && roleType !== 'ADMIN') {
+    next('/user/dashboard')
+    return
+  }
+
+  next()
 })
 
 export default router

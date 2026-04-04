@@ -12,12 +12,22 @@ CREATE TABLE IF NOT EXISTS tb_user (
     real_name VARCHAR(50) COMMENT '真实姓名',
     referral_id BIGINT COMMENT '推荐人ID',
     group_id BIGINT COMMENT '分组ID',
-    role ENUM('ADMIN', 'USER') DEFAULT 'USER' COMMENT '角色',
+    role VARCHAR(50) NOT NULL DEFAULT 'USER' COMMENT '角色编码',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     INDEX idx_username (username),
     INDEX idx_group_id (group_id),
     INDEX idx_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 角色表
+CREATE TABLE IF NOT EXISTS tb_role (
+    code VARCHAR(50) PRIMARY KEY COMMENT '角色编码',
+    name VARCHAR(100) NOT NULL COMMENT '角色名称',
+    role_type VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '权限类型',
+    description TEXT COMMENT '角色说明',
+    is_system BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否系统内置',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限表';
 
 -- 分组表
 CREATE TABLE IF NOT EXISTS tb_group (
@@ -142,6 +152,11 @@ CREATE TABLE IF NOT EXISTS tb_memory_meta (
 -- 初始管理员 (密码: admin123)
 INSERT INTO tb_user (id, username, password_hash, real_name, role) VALUES
 (1000000000000000001, 'admin', '$2b$12$7PClnwmUNx.zogr/0ZUTSerDKm2V9TWdsZ13XImNaA/A/TSkkWMCC', '系统管理员', 'ADMIN');
+
+-- 初始角色
+INSERT INTO tb_role (code, name, role_type, description, is_system) VALUES
+('ADMIN', '管理员', 'ADMIN', '系统管理员，拥有全部管理权限', TRUE),
+('USER', '普通用户', 'USER', '普通业务用户，仅查看自己名下数据', TRUE);
 
 -- 初始供应商
 INSERT INTO tb_provider (id, name, code, base_url, config_guide, status) VALUES

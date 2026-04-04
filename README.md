@@ -240,7 +240,7 @@ environment:
 
 ### 用户操作流程
 
-1. 注册账号（可填写推荐人ID）
+1. 注册账号（可填写推荐人手机号）
 2. 登录后创建租户
    - 填写租户名称
    - 可选：绑定分组用户
@@ -282,14 +282,24 @@ npm run dev
 - `POST /api/auth/login` - 用户登录
 
 **用户接口**
+- `GET /api/user/profile` - 获取当前用户资料
+- `PUT /api/user/profile` - 修改当前用户资料
 - `POST /api/user/tenants` - 创建租户
 - `GET /api/user/tenants` - 获取我的租户
 - `GET /api/user/tenants/group` - 获取分组租户
+- `GET /api/user/memory` - 获取当前用户租户记忆列表
+- `GET /api/user/memory/{app_key}` - 获取当前用户指定租户记忆
 - `POST /api/user/tenants/{app_key}/provider-keys` - 配置API Key
 - `GET /api/user/token-stats` - 获取Token统计
 
 **管理员接口**
 - `GET /api/admin/users` - 用户列表
+- `GET /api/admin/roles` - 角色权限列表
+- `POST /api/admin/roles` - 新增角色
+- `PUT /api/admin/roles/{role_code}` - 修改角色
+- `DELETE /api/admin/roles/{role_code}` - 删除角色
+- `PUT /api/admin/users/{user_id}/role` - 配置用户角色
+- `GET /api/admin/groups` - 全部分组列表
 - `GET /api/admin/tenants` - 租户列表
 - `GET /api/admin/providers` - 供应商列表
 - `GET /api/admin/token-stats` - Token统计
@@ -369,6 +379,14 @@ MIT License
 - ✅ 对话记录追踪
 - ✅ 跨层引用检测
 - ✅ 数据库驱动的供应商配置
+
+### v1.1.0 (2026-04-04)
+
+- ✅ 角色权限管理（角色新增、修改、删除、用户角色分配）
+- ✅ 管理员全局数据视图（用户、分组、租户、供应商、Token、记忆）
+- ✅ 普通用户资料管理与个人记忆查看
+- ✅ 顶部“用户”菜单，支持资料修改与退出
+- ✅ 数据库角色表与用户角色编码升级
 
 ## 联系方式
 

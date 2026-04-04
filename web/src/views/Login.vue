@@ -32,7 +32,7 @@
               <el-input v-model="registerForm.real_name" placeholder="真实姓名（选填）" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="registerForm.password" type="password" placeholder="密码（仅数字且大于6位）" />
+              <el-input v-model="registerForm.password" type="password" placeholder="密码（长度需大于6位）" />
             </el-form-item>
             <el-form-item>
               <el-input v-model="registerForm.referrer_phone" placeholder="推荐人手机号（选填）" />
@@ -91,9 +91,12 @@ const handleLogin = async () => {
     const res = await api.post('/auth/login', loginForm.value)
     localStorage.setItem('token', res.access_token)
     localStorage.setItem('role', (res.role || 'USER').toUpperCase())
+    localStorage.setItem('roleName', res.role_name || res.role || '普通用户')
+    localStorage.setItem('roleType', (res.role_type || 'USER').toUpperCase())
+    localStorage.setItem('username', res.username || loginForm.value.username)
     ElMessage.success('登录成功')
-    if ((res.role || '').toUpperCase() === 'ADMIN') {
-      router.push('/admin/providers')
+    if ((res.role_type || '').toUpperCase() === 'ADMIN') {
+      router.push('/admin/users')
       return
     }
     router.push('/user/dashboard')
@@ -114,8 +117,8 @@ const handleRegister = async () => {
     return
   }
 
-  if (!/^\d+$/.test(password) || password.length <= 6) {
-    ElMessage.error('密码必须为大于6位的纯数字')
+  if (password.length <= 6) {
+    ElMessage.error('密码长度必须大于6位')
     return
   }
 

@@ -26,6 +26,11 @@ class TenantResponse(BaseModel):
         from_attributes = True
 
 
+class TenantPageResponse(BaseModel):
+    total: int
+    items: List[TenantResponse]
+
+
 class TenantCreate(BaseModel):
     user_id: int | str
     tenant_name: Optional[str] = None
@@ -56,7 +61,7 @@ def _normalize_user_id(user_id: int | str | None) -> Optional[int]:
         raise HTTPException(status_code=400, detail="Invalid user_id")
 
 
-@router.get("/tenants", response_model=List[TenantResponse])
+@router.get("/tenants", response_model=TenantPageResponse)
 async def list_tenants(
     skip: int = 0,
     limit: int = 100,
@@ -69,21 +74,25 @@ async def list_tenants(
     if status:
         query = query.filter(Tenant.status == str(status).upper())
 
+    total = query.count()
     rows = query.offset(skip).limit(limit).all()
-    return [
-        TenantResponse(
-            id=skip + index + 1,
-            app_key=tenant.app_key,
-            app_secret=tenant.app_secret[:10] + "...",
-            tenant_name=tenant.tenant_name,
-            status=tenant.status.value,
-            user_id=str(tenant.user_id),
-            username=user.username,
-            bound_users=tenant.group_binding_json,
-            created_at=tenant.created_at.isoformat()
-        )
-        for index, (tenant, user) in enumerate(rows)
-    ]
+    return TenantPageResponse(
+        total=total,
+        items=[
+            TenantResponse(
+                id=skip + index + 1,
+                app_key=tenant.app_key,
+                app_secret=tenant.app_secret[:10] + "...",
+                tenant_name=tenant.tenant_name,
+                status=tenant.status.value,
+                user_id=str(tenant.user_id),
+                username=user.username,
+                bound_users=tenant.group_binding_json,
+                created_at=tenant.created_at.isoformat()
+            )
+            for index, (tenant, user) in enumerate(rows)
+        ]
+    )
 
 @router.post("/tenants", response_model=TenantResponse)
 async def create_tenant(
