@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS tb_tenant (
 
 -- 供应商表
 CREATE TABLE IF NOT EXISTS tb_provider (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '供应商ID',
+    id BIGINT PRIMARY KEY COMMENT '供应商ID',
     name VARCHAR(100) NOT NULL COMMENT '供应商名称',
     code VARCHAR(50) NOT NULL UNIQUE COMMENT '供应商代码',
     base_url VARCHAR(255) NOT NULL COMMENT '基础URL',
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS tb_provider (
 
 -- 供应商密钥表
 CREATE TABLE IF NOT EXISTS tb_provider_key (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '密钥ID',
+    id BIGINT PRIMARY KEY COMMENT '密钥ID',
     app_key VARCHAR(64) NOT NULL COMMENT '租户AppKey',
     provider_id BIGINT NOT NULL COMMENT '供应商ID',
     api_key VARCHAR(255) NOT NULL COMMENT 'API密钥',
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS tb_token_summary (
 
 -- Token每日统计表
 CREATE TABLE IF NOT EXISTS tb_token_daily (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    id BIGINT PRIMARY KEY COMMENT '记录ID',
     app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     date DATE NOT NULL COMMENT '日期',
     token_count BIGINT DEFAULT 0 COMMENT 'Token数量',
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS tb_token_daily (
 
 -- 对话记录表
 CREATE TABLE IF NOT EXISTS tb_conversation (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    id BIGINT PRIMARY KEY COMMENT '记录ID',
     app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     round_number INT NOT NULL COMMENT '对话轮次',
     user_message TEXT NOT NULL COMMENT '用户消息',
@@ -113,6 +113,22 @@ CREATE TABLE IF NOT EXISTS tb_conversation (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     INDEX idx_app_key_round (app_key, round_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话记录表';
+
+-- 对话Token明细表
+CREATE TABLE IF NOT EXISTS tb_token_conversation (
+    id BIGINT PRIMARY KEY COMMENT '记录ID',
+    app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
+    round_number INT NOT NULL COMMENT '对话轮次',
+    provider_name VARCHAR(128) COMMENT '供应商名称',
+    model_name VARCHAR(128) COMMENT '模型名称',
+    prompt_tokens BIGINT DEFAULT 0 COMMENT '输入Token数',
+    completion_tokens BIGINT DEFAULT 0 COMMENT '输出Token数',
+    total_tokens BIGINT DEFAULT 0 COMMENT '总Token数',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_app_key (app_key),
+    INDEX idx_round_number (round_number),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话Token明细表';
 
 -- 记忆元数据表
 CREATE TABLE IF NOT EXISTS tb_memory_meta (

@@ -5,7 +5,7 @@
     <el-card class="mb-4">
       <el-form :model="form" label-width="140px">
         <el-form-item label="转发服务API地址">
-          <el-input v-model="form.apiUrl" placeholder="例如: http://127.0.0.1:8000/api/proxy/chat/completions/sse" />
+          <el-input v-model="form.apiUrl" placeholder="例如: http://127.0.0.1:8000/chat/completions" />
         </el-form-item>
         <el-form-item label="AppKey">
           <el-select v-model="form.appKey" placeholder="请选择AppKey" filterable style="width: 100%">
@@ -62,7 +62,7 @@ import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 
 const form = ref({
-  apiUrl: `${window.location.origin}/api/proxy/chat/completions/sse`,
+  apiUrl: `${window.location.origin}/chat/completions`,
   appKey: '',
   model: '',
   question: ''

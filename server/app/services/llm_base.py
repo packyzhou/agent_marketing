@@ -11,7 +11,11 @@ class BaseLLM(ABC):
 
     @abstractmethod
     async def chat_completion(
-        self, messages: list, model: str, stream: bool = False
+        self,
+        messages: list,
+        model: str,
+        stream: bool = False,
+        extra_body: Dict[str, Any] | None = None,
     ) -> AsyncIterator[Dict[str, Any]]:
         pass
 
@@ -21,14 +25,27 @@ class BaseLLM(ABC):
 
 
 class QwenLLM(BaseLLM):
-    async def chat_completion(self, messages: list, model: str, stream: bool = False):
+    async def chat_completion(
+        self,
+        messages: list,
+        model: str,
+        stream: bool = False,
+        extra_body: Dict[str, Any] | None = None,
+    ):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        payload = {"model": model, "messages": messages, "stream": stream}
+        payload = dict(extra_body or {})
+        payload["model"] = model
+        payload["messages"] = messages
+        payload["stream"] = stream
         if stream:
-            payload["stream_options"] = {"include_usage": True}
+            stream_options = payload.get("stream_options", {})
+            if not isinstance(stream_options, dict):
+                stream_options = {}
+            stream_options["include_usage"] = True
+            payload["stream_options"] = stream_options
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             if stream:
@@ -56,8 +73,7 @@ class QwenLLM(BaseLLM):
                     if status_code not in [400, 422]:
                         raise
                     fallback_payload = {
-                        "model": model,
-                        "messages": messages,
+                        **payload,
                         "stream": True,
                     }
                     async with client.stream(

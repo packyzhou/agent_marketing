@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import asyncio
 from ...core.database import get_db
+from ...core.snowflake import generate_snowflake_id
 from ...models.tenant import Tenant
 from ...models.provider import ProviderKey, Provider
 from ...models.conversation import Conversation
@@ -53,6 +54,14 @@ def _resolve_provider_context(db: Session, app_key: str):
     return provider_key, provider
 
 
+def _build_openai_payload(body: dict) -> dict:
+    if not isinstance(body, dict):
+        return {}
+    payload = dict(body)
+    payload.pop("app_key", None)
+    return payload
+
+
 async def _save_conversation(
     db: Session, app_key: str, user_message: str, ai_response: str
 ):
@@ -60,6 +69,7 @@ async def _save_conversation(
         db.query(Conversation).filter(Conversation.app_key == app_key).count() + 1
     )
     conversation = Conversation(
+        id=generate_snowflake_id(),
         app_key=app_key,
         round_number=round_number,
         user_message=user_message,
@@ -132,6 +142,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     body = await request.json()
     app_key = _resolve_app_key(request, body)
     provider_key, provider = _resolve_provider_context(db, app_key)
+    openai_payload = _build_openai_payload(body)
 
     messages = body.get("messages", [])
     if not isinstance(messages, list) or len(messages) == 0:
@@ -185,7 +196,9 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         nonlocal total_tokens, prompt_tokens, completion_tokens, ai_response
         prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
         try:
-            async for chunk in llm_client.chat_completion(messages, model, True):
+            async for chunk in llm_client.chat_completion(
+                messages, model, True, openai_payload
+            ):
                 usage_prompt, usage_completion, usage_total = _extract_openai_usage(
                     chunk
                 )
@@ -235,7 +248,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     result = None
-    async for chunk in llm_client.chat_completion(messages, model, False):
+    async for chunk in llm_client.chat_completion(messages, model, False, openai_payload):
         result = chunk
 
     if result is None:

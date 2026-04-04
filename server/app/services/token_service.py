@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from ..core.snowflake import generate_snowflake_id
 from ..models.token import TokenSummary, TokenDaily, TokenConversation
 
 async def update_token_stats(db: Session, app_key: str, token_count: int, request_count: int = 1):
@@ -28,12 +29,15 @@ async def update_token_stats(db: Session, app_key: str, token_count: int, reques
         daily_record.request_count += request_count
     else:
         daily_record = TokenDaily(
+            id=generate_snowflake_id(),
             app_key=app_key,
             date=today,
             token_count=token_count,
             request_count=request_count
         )
         db.add(daily_record)
+
+    db.flush()
 
     # 计算本月总量
     current_month_total = db.query(func.sum(TokenDaily.token_count)).filter(
@@ -77,6 +81,7 @@ async def save_conversation_token_usage(
     total_tokens: int,
 ):
     usage = TokenConversation(
+        id=generate_snowflake_id(),
         app_key=app_key,
         round_number=round_number,
         provider_name=provider_name,

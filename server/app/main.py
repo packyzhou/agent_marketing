@@ -105,6 +105,7 @@ app.include_router(tenant_router, prefix="/api/user", tags=["tenant"])
 app.include_router(stats_router, prefix="/api/user", tags=["stats"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(proxy_router, prefix="/api/proxy", tags=["proxy"])
+app.include_router(proxy_router, tags=["openai"])
 
 @app.get("/")
 async def root():
