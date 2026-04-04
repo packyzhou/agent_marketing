@@ -31,34 +31,40 @@
       </el-form>
     </el-card>
 
+    <el-card class="mb-4">
+      <template #header>AI响应（流式 Markdown）</template>
+      <div v-if="aiResponse" class="panel markdown-panel">
+        <div class="markdown-body" v-html="renderedAiResponse"></div>
+      </div>
+      <div v-else class="panel placeholder-panel">等待响应...</div>
+    </el-card>
+
     <el-row :gutter="16">
-      <el-col :span="12">
-        <el-card>
-          <template #header>AI响应（流式）</template>
-          <div class="panel">{{ aiResponse || '等待响应...' }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :lg="12">
         <el-card>
           <template #header>用户输入信息</template>
-          <div class="panel">
+          <div class="meta-panel">
             <pre>{{ displayRequest }}</pre>
           </div>
         </el-card>
       </el-col>
+      <el-col :xs="24" :lg="12">
+        <el-card>
+          <template #header>错误详情</template>
+          <div class="meta-panel">
+            <pre>{{ displayError }}</pre>
+          </div>
+        </el-card>
+      </el-col>
     </el-row>
-    <el-card class="mt-4">
-      <template #header>错误详情</template>
-      <div class="panel">
-        <pre>{{ displayError }}</pre>
-      </div>
-    </el-card>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import DOMPurify from 'dompurify'
 import { ElMessage } from 'element-plus'
+import { marked } from 'marked'
 import api from '../../api/request'
 
 const form = ref({
@@ -75,6 +81,11 @@ const errorInfo = ref(null)
 const tenantOptions = ref([])
 let abortController = null
 
+marked.setOptions({
+  gfm: true,
+  breaks: true
+})
+
 const displayRequest = computed(() => {
   if (!requestInfo.value) return '尚未发送请求'
   return JSON.stringify(requestInfo.value, null, 2)
@@ -83,6 +94,13 @@ const displayRequest = computed(() => {
 const displayError = computed(() => {
   if (!errorInfo.value) return '暂无错误'
   return JSON.stringify(errorInfo.value, null, 2)
+})
+
+const renderedAiResponse = computed(() => {
+  if (!aiResponse.value) {
+    return ''
+  }
+  return DOMPurify.sanitize(marked.parse(aiResponse.value))
 })
 
 const resetResult = () => {
@@ -252,12 +270,94 @@ onMounted(() => {
 <style scoped>
 .panel {
   min-height: 360px;
-  white-space: pre-wrap;
-  word-break: break-word;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 12px;
+}
+
+.meta-panel {
+  min-height: 360px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.placeholder-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.markdown-panel {
+  overflow-wrap: anywhere;
+}
+
+.markdown-body {
+  color: #111827;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.markdown-body :deep(p) {
+  margin: 0 0 12px;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.markdown-body :deep(li) {
+  margin-bottom: 4px;
+}
+
+.markdown-body :deep(pre) {
+  margin: 12px 0;
+  padding: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.markdown-body :deep(code) {
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.markdown-body :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 12px 0;
+  padding-left: 12px;
+  border-left: 4px solid #d1d5db;
+  color: #4b5563;
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #d1d5db;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.markdown-body :deep(img) {
+  max-width: 100%;
 }
 
 pre {
