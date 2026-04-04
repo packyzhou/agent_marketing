@@ -6,6 +6,7 @@ import secrets
 import json
 from ...core.database import get_db
 from ...core.deps import get_current_user
+from ...core.snowflake import generate_snowflake_id
 from ...models.tenant import Tenant, TenantStatus
 from ...models.user import User, Group, GroupMemberAppBinding
 from ...models.provider import Provider, ProviderKey
@@ -384,6 +385,7 @@ async def create_provider_key(
         return existing_key
 
     provider_key = ProviderKey(
+        id=generate_snowflake_id(),
         app_key=app_key,
         provider_id=key_data.provider_id,
         api_key=key_data.api_key,

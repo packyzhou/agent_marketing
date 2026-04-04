@@ -17,7 +17,7 @@ class TenantResponse(BaseModel):
     app_secret: str
     tenant_name: Optional[str]
     status: str
-    user_id: int
+    user_id: str
     username: str
     bound_users: Optional[str]
     created_at: str
@@ -27,13 +27,13 @@ class TenantResponse(BaseModel):
 
 
 class TenantCreate(BaseModel):
-    user_id: int
+    user_id: int | str
     tenant_name: Optional[str] = None
     status: Optional[str] = "ACTIVE"
 
 
 class TenantUpdate(BaseModel):
-    user_id: Optional[int] = None
+    user_id: Optional[int | str] = None
     tenant_name: Optional[str] = None
     status: Optional[str] = None
 
@@ -45,6 +45,15 @@ def _normalize_status(status: Optional[str]) -> Optional[TenantStatus]:
     if status_value not in [TenantStatus.ACTIVE.value, TenantStatus.INACTIVE.value]:
         raise HTTPException(status_code=400, detail="Invalid status")
     return TenantStatus(status_value)
+
+
+def _normalize_user_id(user_id: int | str | None) -> Optional[int]:
+    if user_id is None:
+        return None
+    try:
+        return int(str(user_id).strip())
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid user_id")
 
 
 @router.get("/tenants", response_model=List[TenantResponse])
@@ -68,7 +77,7 @@ async def list_tenants(
             app_secret=tenant.app_secret[:10] + "...",
             tenant_name=tenant.tenant_name,
             status=tenant.status.value,
-            user_id=tenant.user_id,
+            user_id=str(tenant.user_id),
             username=user.username,
             bound_users=tenant.group_binding_json,
             created_at=tenant.created_at.isoformat()
@@ -82,7 +91,8 @@ async def create_tenant(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    owner = db.query(User).filter(User.id == tenant_data.user_id).first()
+    normalized_user_id = _normalize_user_id(tenant_data.user_id)
+    owner = db.query(User).filter(User.id == normalized_user_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner user not found")
 
@@ -95,7 +105,7 @@ async def create_tenant(
     tenant = Tenant(
         app_key=app_key,
         app_secret=app_secret,
-        user_id=tenant_data.user_id,
+        user_id=normalized_user_id,
         tenant_name=(tenant_data.tenant_name or "").strip() or None,
         status=status,
     )
@@ -108,7 +118,7 @@ async def create_tenant(
         app_secret=tenant.app_secret[:10] + "...",
         tenant_name=tenant.tenant_name,
         status=tenant.status.value,
-        user_id=tenant.user_id,
+        user_id=str(tenant.user_id),
         username=owner.username,
         bound_users=tenant.group_binding_json,
         created_at=tenant.created_at.isoformat(),
@@ -140,7 +150,7 @@ async def get_tenant_detail(
         "app_secret": tenant.app_secret,
         "tenant_name": tenant.tenant_name,
         "status": tenant.status.value,
-        "user_id": tenant.user_id,
+        "user_id": str(tenant.user_id),
         "username": owner.username if owner else "",
         "bound_users": bound_users_list,
         "created_at": tenant.created_at.isoformat()
@@ -159,10 +169,11 @@ async def update_tenant(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     if tenant_data.user_id is not None:
-        owner = db.query(User).filter(User.id == tenant_data.user_id).first()
+        normalized_user_id = _normalize_user_id(tenant_data.user_id)
+        owner = db.query(User).filter(User.id == normalized_user_id).first()
         if not owner:
             raise HTTPException(status_code=404, detail="Owner user not found")
-        tenant.user_id = tenant_data.user_id
+        tenant.user_id = normalized_user_id
 
     if tenant_data.tenant_name is not None:
         tenant.tenant_name = (tenant_data.tenant_name or "").strip() or None
@@ -180,7 +191,7 @@ async def update_tenant(
         app_secret=tenant.app_secret[:10] + "...",
         tenant_name=tenant.tenant_name,
         status=tenant.status.value,
-        user_id=tenant.user_id,
+        user_id=str(tenant.user_id),
         username=owner.username if owner else "",
         bound_users=tenant.group_binding_json,
         created_at=tenant.created_at.isoformat(),

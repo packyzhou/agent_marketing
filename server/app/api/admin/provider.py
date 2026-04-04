@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy import and_
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
+from ...core.snowflake import generate_snowflake_id
 from ...models.provider import Provider, ProviderKey, ProviderStatus
 from ...models.tenant import Tenant
 from ...models.user import User
@@ -119,6 +120,7 @@ async def create_provider(
     payload["name"] = payload["name"].strip()
     payload["code"] = payload["code"].strip()
     payload["base_url"] = payload["base_url"].strip()
+    payload["id"] = generate_snowflake_id()
     provider = Provider(**payload)
     db.add(provider)
     db.commit()
@@ -280,6 +282,7 @@ async def create_tenant_provider_key(
         )
 
     key = ProviderKey(
+        id=generate_snowflake_id(),
         app_key=app_key,
         provider_id=key_data.provider_id,
         api_key=key_data.api_key.strip(),

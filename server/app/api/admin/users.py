@@ -10,14 +10,14 @@ from pydantic import BaseModel
 router = APIRouter()
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     username: str
     email: Optional[str]
     phone: Optional[str]
     real_name: Optional[str]
     role: str
-    referral_id: Optional[int]
-    group_id: Optional[int]
+    referral_id: Optional[str]
+    group_id: Optional[str]
     created_at: str
 
     class Config:
@@ -43,14 +43,14 @@ async def list_users(
     users = query.offset(skip).limit(limit).all()
     return [
         UserResponse(
-            id=user.id,
+            id=str(user.id),
             username=user.username,
             email=getattr(user, "email", None),
             phone=user.phone,
             real_name=user.real_name,
             role=user.role,
-            referral_id=user.referral_id,
-            group_id=user.group_id,
+            referral_id=str(user.referral_id) if user.referral_id is not None else None,
+            group_id=str(user.group_id) if user.group_id is not None else None,
             created_at=user.created_at.isoformat()
         )
         for user in users
@@ -71,14 +71,14 @@ async def get_user_detail(
     referral_count = db.query(User).filter(User.referral_id == user.id).count()
 
     return UserDetailResponse(
-        id=user.id,
+        id=str(user.id),
         username=user.username,
         email=getattr(user, "email", None),
         phone=user.phone,
         real_name=user.real_name,
         role=user.role,
-        referral_id=user.referral_id,
-        group_id=user.group_id,
+        referral_id=str(user.referral_id) if user.referral_id is not None else None,
+        group_id=str(user.group_id) if user.group_id is not None else None,
         created_at=user.created_at.isoformat(),
         tenant_count=tenant_count,
         referral_count=referral_count
