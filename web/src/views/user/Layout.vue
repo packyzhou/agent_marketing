@@ -11,6 +11,7 @@
         <el-menu :default-active="$route.path" router>
           <el-menu-item index="/user/dashboard">数据中心</el-menu-item>
           <el-menu-item index="/user/tenants">我的租户</el-menu-item>
+          <el-menu-item index="/user/groups">分组管理</el-menu-item>
           <el-menu-item index="/user/group-tenants">分组租户</el-menu-item>
           <el-menu-item index="/user/tokens">Token统计</el-menu-item>
           <el-menu-item index="/user/proxy-debug">对话调试</el-menu-item>

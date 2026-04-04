@@ -20,10 +20,69 @@ from .tenant_schemas import (
     GroupResponse,
     GroupPageResponse,
     GroupMemberResponse,
+    GroupMemberPageResponse,
     GroupMemberBindRequest,
 )
 
 router = APIRouter()
+
+
+def _get_accessible_group(db: Session, current_user: User, group_id: int) -> Group:
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.owner_id != current_user.id and group.id != current_user.group_id:
+        raise HTTPException(status_code=403, detail="No permission to access group")
+
+    return group
+
+
+def _build_group_member_responses(
+    db: Session,
+    members: List[User],
+    binding_owner_id: int,
+) -> List[GroupMemberResponse]:
+    member_ids = [member.id for member in members]
+    binding_map = {}
+    tenant_map = {}
+
+    if member_ids:
+        bindings = (
+            db.query(GroupMemberAppBinding)
+            .filter(
+                GroupMemberAppBinding.owner_user_id == binding_owner_id,
+                GroupMemberAppBinding.member_id.in_(member_ids),
+            )
+            .all()
+        )
+        binding_map = {binding.member_id: binding for binding in bindings}
+        app_keys = [binding.app_key for binding in bindings if binding.app_key]
+        if app_keys:
+            tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
+            tenant_map = {tenant.app_key: tenant for tenant in tenants}
+
+    return [
+        GroupMemberResponse(
+            member_id=member.id,
+            username=member.username,
+            member_name=member.real_name or member.username,
+            phone=member.phone,
+            app_key=(
+                binding_map.get(member.id).app_key
+                if binding_map.get(member.id)
+                else None
+            ),
+            app_key_status=(
+                str(tenant_map[binding_map[member.id].app_key].status.value)
+                if binding_map.get(member.id)
+                and binding_map[member.id].app_key in tenant_map
+                else None
+            ),
+            created_at=member.created_at,
+        )
+        for member in members
+    ]
 
 
 @router.post("/tenants", response_model=TenantResponse)
@@ -118,18 +177,43 @@ async def list_groups(
 
     items = []
     for group in groups:
-        member_count = db.query(User).filter(User.group_id == group.id).count()
+        member_count = (
+            db.query(User)
+            .filter(User.group_id == group.id, User.id != group.owner_id)
+            .count()
+        )
         items.append(
             GroupResponse(
                 id=group.id,
                 group_name=group.group_name,
                 owner_id=group.owner_id,
                 member_count=member_count,
+                can_manage=group.owner_id == current_user.id,
                 created_at=group.created_at,
             )
         )
 
     return GroupPageResponse(total=total, items=items)
+
+
+@router.get("/groups/{group_id}/members", response_model=GroupMemberPageResponse)
+async def list_group_members_by_group(
+    group_id: int,
+    skip: int = 0,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    group = _get_accessible_group(db, current_user, group_id)
+    query = (
+        db.query(User)
+        .filter(User.group_id == group.id, User.id != group.owner_id)
+        .order_by(User.created_at.desc())
+    )
+    total = query.count()
+    members = query.offset(skip).limit(limit).all()
+    items = _build_group_member_responses(db, members, group.owner_id)
+    return GroupMemberPageResponse(total=total, items=items)
 
 
 @router.get("/tenants/{app_key}", response_model=TenantResponse)
@@ -215,42 +299,7 @@ async def list_group_members(
         .order_by(User.created_at.desc())
         .all()
     )
-    member_ids = [member.id for member in members]
-    if not member_ids:
-        return []
-    bindings = (
-        db.query(GroupMemberAppBinding)
-        .filter(
-            GroupMemberAppBinding.owner_user_id == current_user.id,
-            GroupMemberAppBinding.member_id.in_(member_ids),
-        )
-        .all()
-    )
-    binding_map = {binding.member_id: binding for binding in bindings}
-    app_keys = [binding.app_key for binding in bindings if binding.app_key]
-    tenant_map = {}
-    if app_keys:
-        tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
-        tenant_map = {tenant.app_key: tenant for tenant in tenants}
-
-    return [
-        GroupMemberResponse(
-            member_id=member.id,
-            member_name=member.real_name or member.username,
-            app_key=(
-                binding_map.get(member.id).app_key
-                if binding_map.get(member.id)
-                else None
-            ),
-            app_key_status=(
-                str(tenant_map[binding_map[member.id].app_key].status.value)
-                if binding_map.get(member.id)
-                and binding_map[member.id].app_key in tenant_map
-                else None
-            ),
-        )
-        for member in members
-    ]
+    return _build_group_member_responses(db, members, current_user.id)
 
 
 @router.get("/active-app-keys", response_model=List[TenantResponse])
@@ -317,6 +366,53 @@ async def bind_member_app_key(
         db.add(binding)
     db.commit()
     return {"message": "Bind success"}
+
+
+@router.delete("/groups/{group_id}/members/{member_id}")
+async def delete_group_member(
+    group_id: int,
+    member_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    group = _get_accessible_group(db, current_user, group_id)
+    if group.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only group owner can delete members")
+
+    member = (
+        db.query(User)
+        .filter(
+            User.id == member_id,
+            User.group_id == group.id,
+            User.id != group.owner_id,
+        )
+        .first()
+    )
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    owned_group = db.query(Group).filter(Group.owner_id == member.id).first()
+    if not owned_group:
+        raise HTTPException(status_code=400, detail="Member personal group not found")
+
+    (
+        db.query(GroupMemberAppBinding)
+        .filter(
+            or_(
+                GroupMemberAppBinding.member_id == member.id,
+                and_(
+                    GroupMemberAppBinding.owner_user_id == current_user.id,
+                    GroupMemberAppBinding.member_id == member.id,
+                ),
+            )
+        )
+        .delete(synchronize_session=False)
+    )
+
+    member.referral_id = None
+    member.group_id = owned_group.id
+    db.commit()
+    return {"message": "Member removed successfully"}
 
 
 # 供应商配置相关接口

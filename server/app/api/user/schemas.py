@@ -18,7 +18,7 @@ class UserCreate(UserBase):
     password: str
     phone: str
     real_name: Optional[str] = None
-    referral_id: Optional[int] = None
+    referrer_phone: Optional[str] = None
 
     @field_validator("phone")
     @classmethod
@@ -38,23 +38,13 @@ class UserCreate(UserBase):
             raise ValueError("password must be numeric and longer than 6 digits")
         return password
 
-    @field_validator("referral_id", mode="before")
+    @field_validator("referrer_phone")
     @classmethod
-    def normalize_referral_id(cls, value):
+    def normalize_referrer_phone(cls, value):
         if value is None:
             return None
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return None
-            if text.isdigit():
-                return int(text)
-            raise ValueError("referral_id must be a positive integer")
-        if isinstance(value, int):
-            if value <= 0:
-                raise ValueError("referral_id must be a positive integer")
-            return value
-        raise ValueError("referral_id must be a positive integer")
+        text = str(value).strip()
+        return text or None
 
 
 class UserLogin(BaseModel):

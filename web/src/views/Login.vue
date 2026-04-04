@@ -23,7 +23,7 @@
         <el-tab-pane label="注册" name="register">
           <el-form :model="registerForm" @submit.prevent="handleRegister">
             <el-form-item>
-              <el-input v-model="registerForm.username" placeholder="用户名" />
+              <el-input v-model="registerForm.username" placeholder="用户账号（必填）" />
             </el-form-item>
             <el-form-item>
               <el-input v-model="registerForm.phone" placeholder="手机号（必填）" />
@@ -35,7 +35,7 @@
               <el-input v-model="registerForm.password" type="password" placeholder="密码（仅数字且大于6位）" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="registerForm.referral_id" placeholder="推荐人ID（选填）" />
+              <el-input v-model="registerForm.referrer_phone" placeholder="推荐人手机号（选填）" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleRegister" class="w-full" style="background-color: #00796B">
@@ -66,7 +66,7 @@ const registerForm = ref({
   phone: '',
   real_name: '',
   password: '',
-  referral_id: ''
+  referrer_phone: ''
 })
 
 const getErrorMessage = (error, fallback) => {
@@ -107,10 +107,10 @@ const handleRegister = async () => {
   const phone = registerForm.value.phone.trim()
   const password = registerForm.value.password.trim()
   const realName = registerForm.value.real_name.trim()
-  const referralText = registerForm.value.referral_id.trim()
+  const referrerPhone = registerForm.value.referrer_phone.trim()
 
   if (!username || !phone || !password) {
-    ElMessage.error('手机号、用户名、密码为必填项')
+    ElMessage.error('用户账号、手机号、密码为必填项')
     return
   }
 
@@ -119,22 +119,13 @@ const handleRegister = async () => {
     return
   }
 
-  let referralId = null
-  if (referralText) {
-    referralId = Number(referralText)
-    if (!Number.isInteger(referralId) || referralId <= 0) {
-      ElMessage.error('推荐人ID必须为正整数')
-      return
-    }
-  }
-
   try {
     await api.post('/auth/register', {
       username,
       phone,
       password,
       real_name: realName || null,
-      referral_id: referralId
+      referrer_phone: referrerPhone || null
     })
     ElMessage.success('注册成功，请登录')
     registerForm.value = {
@@ -142,7 +133,7 @@ const handleRegister = async () => {
       phone: '',
       real_name: '',
       password: '',
-      referral_id: ''
+      referrer_phone: ''
     }
     activeTab.value = 'login'
   } catch (error) {

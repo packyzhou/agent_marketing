@@ -19,6 +19,11 @@ const routes = [
         component: () => import('../views/admin/Users.vue')
       },
       {
+        path: 'groups',
+        name: 'AdminGroups',
+        component: () => import('../views/admin/Groups.vue')
+      },
+      {
         path: 'tenants',
         name: 'AdminTenants',
         component: () => import('../views/admin/Tenants.vue')
@@ -63,6 +68,11 @@ const routes = [
         path: 'group-tenants',
         name: 'UserGroupTenants',
         component: () => import('../views/user/GroupTenants.vue')
+      },
+      {
+        path: 'groups',
+        name: 'UserGroups',
+        component: () => import('../views/user/Groups.vue')
       },
       {
         path: 'tokens',

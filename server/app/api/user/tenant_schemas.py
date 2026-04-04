@@ -62,6 +62,7 @@ class GroupResponse(BaseModel):
     group_name: str
     owner_id: int
     member_count: int
+    can_manage: bool
     created_at: datetime
 
 class GroupPageResponse(BaseModel):
@@ -71,9 +72,17 @@ class GroupPageResponse(BaseModel):
 
 class GroupMemberResponse(BaseModel):
     member_id: int
+    username: str
     member_name: str
+    phone: Optional[str]
     app_key: Optional[str]
     app_key_status: Optional[str]
+    created_at: datetime
+
+
+class GroupMemberPageResponse(BaseModel):
+    total: int
+    items: List[GroupMemberResponse]
 
 
 class GroupMemberBindRequest(BaseModel):

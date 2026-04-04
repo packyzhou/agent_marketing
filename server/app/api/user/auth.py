@@ -8,6 +8,20 @@ from .schemas import UserCreate, UserLogin, UserResponse, Token
 
 router = APIRouter()
 
+
+def _ensure_owned_group(db: Session, owner_id: int, username: str):
+    group = db.query(Group).filter(Group.owner_id == owner_id).first()
+    if group:
+        return group
+    group = Group(
+        id=generate_snowflake_id(),
+        group_name=f"{username}的团队",
+        owner_id=owner_id,
+    )
+    db.add(group)
+    db.flush()
+    return group
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # 检查用户名是否已存在
@@ -29,37 +43,26 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         password_hash=get_password_hash(user_data.password),
         phone=user_data.phone,
         real_name=user_data.real_name,
-        referral_id=None
+        referral_id=None,
     )
 
-    # 如果有推荐人，且推荐人存在，则自动加入推荐人的分组
-    if user_data.referral_id:
-        referrer = db.query(User).filter(User.id == user_data.referral_id).first()
-        if referrer:
-            user.referral_id = user_data.referral_id
-            if referrer.group_id:
-                # 推荐人已有分组，加入该分组
-                user.group_id = referrer.group_id
-            else:
-                # 推荐人没有分组，为推荐人创建分组
-                group = Group(
-                    group_name=f"{referrer.username}的团队",
-                    owner_id=referrer.id
-                )
-                db.add(group)
-                db.flush()
-                referrer.group_id = group.id
-                user.group_id = group.id
-
-    if not user.group_id:
-        # 没有有效推荐人，为自己创建分组
-        group = Group(
-            group_name=f"{user_data.username}的团队",
-            owner_id=new_user_id
+    owned_group = _ensure_owned_group(db, new_user_id, user_data.username)
+    referrer = None
+    if user_data.referrer_phone:
+        referrer = (
+            db.query(User)
+            .filter(User.phone == user_data.referrer_phone, User.id != new_user_id)
+            .first()
         )
-        db.add(group)
-        db.flush()
-        user.group_id = group.id
+        if not referrer:
+            raise HTTPException(status_code=400, detail="Referrer phone not found")
+        referrer_group = _ensure_owned_group(db, referrer.id, referrer.username)
+        if referrer.group_id != referrer_group.id:
+            referrer.group_id = referrer_group.id
+        user.referral_id = referrer.id
+        user.group_id = referrer_group.id
+    else:
+        user.group_id = owned_group.id
 
     db.add(user)
     db.commit()
