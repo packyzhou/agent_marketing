@@ -19,6 +19,7 @@ from .tenant_schemas import (
     ProviderResponse,
     GroupResponse,
     GroupPageResponse,
+    MemberTenantResponse,
     GroupMemberResponse,
     GroupMemberPageResponse,
     GroupMemberBindRequest,
@@ -27,15 +28,55 @@ from .tenant_schemas import (
 router = APIRouter()
 
 
+def _get_visible_group_id(db: Session, current_user: User) -> int | None:
+    if current_user.group_id:
+        return current_user.group_id
+
+    owned_group = db.query(Group).filter(Group.owner_id == current_user.id).first()
+    if owned_group:
+        return owned_group.id
+
+    return None
+
+
 def _get_accessible_group(db: Session, current_user: User, group_id: int) -> Group:
     group = db.query(Group).filter(Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    if group.owner_id != current_user.id and group.id != current_user.group_id:
+    visible_group_id = _get_visible_group_id(db, current_user)
+    if visible_group_id is None or group.id != visible_group_id:
         raise HTTPException(status_code=403, detail="No permission to access group")
 
     return group
+
+
+def _build_member_owned_tenants_map(
+    db: Session,
+    members: List[User],
+) -> dict[int, List[MemberTenantResponse]]:
+    member_ids = [member.id for member in members]
+    tenant_map: dict[int, List[MemberTenantResponse]] = {}
+
+    if not member_ids:
+        return tenant_map
+
+    tenants = (
+        db.query(Tenant)
+        .filter(Tenant.user_id.in_(member_ids))
+        .order_by(Tenant.created_at.desc())
+        .all()
+    )
+    for tenant in tenants:
+        tenant_map.setdefault(tenant.user_id, []).append(
+            MemberTenantResponse(
+                tenant_name=tenant.tenant_name,
+                app_key=tenant.app_key,
+                status=str(getattr(tenant.status, "value", tenant.status)),
+            )
+        )
+
+    return tenant_map
 
 
 def _build_group_member_responses(
@@ -46,6 +87,7 @@ def _build_group_member_responses(
     member_ids = [member.id for member in members]
     binding_map = {}
     tenant_map = {}
+    owned_tenant_map = _build_member_owned_tenants_map(db, members)
 
     if member_ids:
         bindings = (
@@ -79,6 +121,7 @@ def _build_group_member_responses(
                 and binding_map[member.id].app_key in tenant_map
                 else None
             ),
+            owned_tenants=owned_tenant_map.get(member.id, []),
             created_at=member.created_at,
         )
         for member in members
@@ -165,13 +208,11 @@ async def list_groups(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """根据登录用户ID分页查询分组列表"""
-    if current_user.group_id:
-        query = db.query(Group).filter(
-            or_(Group.owner_id == current_user.id, Group.id == current_user.group_id)
-        )
-    else:
-        query = db.query(Group).filter(Group.owner_id == current_user.id)
+    visible_group_id = _get_visible_group_id(db, current_user)
+    if visible_group_id is None:
+        return GroupPageResponse(total=0, items=[])
+
+    query = db.query(Group).filter(Group.id == visible_group_id)
     total = query.count()
     groups = query.order_by(Group.created_at.desc()).offset(skip).limit(limit).all()
 

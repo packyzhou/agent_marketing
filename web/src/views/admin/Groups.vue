@@ -40,7 +40,7 @@
     <el-dialog
       v-model="membersDialogVisible"
       :title="selectedGroup ? `${selectedGroup.group_name} - 成员管理` : '成员管理'"
-      width="1100px"
+      width="1320px"
     >
       <div v-if="selectedGroup" class="mb-4 text-sm text-gray-500">
         组长：{{ selectedGroup.owner_username }} / {{ selectedGroup.owner_phone || '-' }}，当前成员 {{ membersTotal }} 人
@@ -58,6 +58,24 @@
             <el-tag v-if="row.app_key_status" :type="row.app_key_status === 'ACTIVE' ? 'success' : 'danger'">
               {{ row.app_key_status === 'ACTIVE' ? '启用' : '禁用' }}
             </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="成员租户 / AppKey列表" min-width="380">
+          <template #default="{ row }">
+            <div v-if="row.owned_tenants?.length" class="space-y-2">
+              <div
+                v-for="tenant in row.owned_tenants"
+                :key="tenant.app_key"
+                class="rounded border border-gray-200 px-3 py-2"
+              >
+                <div class="font-medium text-gray-800">{{ tenant.tenant_name || '未命名租户' }}</div>
+                <div class="mt-1 break-all text-xs text-gray-500">{{ tenant.app_key }}</div>
+                <el-tag class="mt-2" size="small" :type="tenant.status === 'ACTIVE' ? 'success' : 'danger'">
+                  {{ tenant.status === 'ACTIVE' ? '启用' : '禁用' }}
+                </el-tag>
+              </div>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>

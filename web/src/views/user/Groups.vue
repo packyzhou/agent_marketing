@@ -3,7 +3,7 @@
     <div class="flex justify-between items-center mb-4">
       <div>
         <h2 class="text-2xl font-bold">分组管理</h2>
-        <p class="text-gray-500 text-sm mt-1">查看分组信息，分页管理分组成员并支持删除成员</p>
+        <p class="text-gray-500 text-sm mt-1">仅查看当前所属分组成员，并展示成员创建的租户、AppKey与状态</p>
       </div>
     </div>
 
@@ -31,7 +31,7 @@
     <el-dialog
       v-model="membersDialogVisible"
       :title="selectedGroup ? `${selectedGroup.group_name} - 成员管理` : '成员管理'"
-      width="1000px"
+      width="1280px"
     >
       <div v-if="selectedGroup" class="mb-4 text-sm text-gray-500">
         当前分组共 {{ membersTotal }} 名成员
@@ -48,6 +48,24 @@
             <el-tag v-if="row.app_key_status" :type="row.app_key_status === 'ACTIVE' ? 'success' : 'danger'">
               {{ row.app_key_status === 'ACTIVE' ? '启用' : '禁用' }}
             </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="成员租户 / AppKey列表" min-width="360">
+          <template #default="{ row }">
+            <div v-if="row.owned_tenants?.length" class="space-y-2">
+              <div
+                v-for="tenant in row.owned_tenants"
+                :key="tenant.app_key"
+                class="rounded border border-gray-200 px-3 py-2"
+              >
+                <div class="font-medium text-gray-800">{{ tenant.tenant_name || '未命名租户' }}</div>
+                <div class="mt-1 break-all text-xs text-gray-500">{{ tenant.app_key }}</div>
+                <el-tag class="mt-2" size="small" :type="tenant.status === 'ACTIVE' ? 'success' : 'danger'">
+                  {{ tenant.status === 'ACTIVE' ? '启用' : '禁用' }}
+                </el-tag>
+              </div>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>

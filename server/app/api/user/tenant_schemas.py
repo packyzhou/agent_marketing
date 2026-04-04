@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -70,6 +70,12 @@ class GroupPageResponse(BaseModel):
     items: List[GroupResponse]
 
 
+class MemberTenantResponse(BaseModel):
+    tenant_name: Optional[str]
+    app_key: str
+    status: str
+
+
 class GroupMemberResponse(BaseModel):
     member_id: str
     username: str
@@ -77,6 +83,7 @@ class GroupMemberResponse(BaseModel):
     phone: Optional[str]
     app_key: Optional[str]
     app_key_status: Optional[str]
+    owned_tenants: List[MemberTenantResponse] = Field(default_factory=list)
     created_at: datetime
 
 

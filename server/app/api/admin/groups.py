@@ -5,7 +5,7 @@ from ...core.database import get_db
 from ...core.deps import get_current_admin_user
 from ...models.user import User, Group, GroupMemberAppBinding
 from ...models.tenant import Tenant
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
@@ -25,6 +25,12 @@ class GroupPageResponse(BaseModel):
     items: List[GroupResponse]
 
 
+class MemberTenantResponse(BaseModel):
+    tenant_name: Optional[str]
+    app_key: str
+    status: str
+
+
 class GroupMemberResponse(BaseModel):
     member_id: str
     username: str
@@ -33,6 +39,7 @@ class GroupMemberResponse(BaseModel):
     referral_id: Optional[str]
     app_key: Optional[str]
     app_key_status: Optional[str]
+    owned_tenants: List[MemberTenantResponse] = Field(default_factory=list)
     created_at: str
 
 
@@ -49,6 +56,7 @@ def _build_group_member_items(
     member_ids = [member.id for member in members]
     binding_map = {}
     tenant_map = {}
+    owned_tenant_map = {}
 
     if member_ids:
         bindings = (
@@ -64,6 +72,20 @@ def _build_group_member_items(
         if app_keys:
             tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
             tenant_map = {tenant.app_key: tenant for tenant in tenants}
+        owned_tenants = (
+            db.query(Tenant)
+            .filter(Tenant.user_id.in_(member_ids))
+            .order_by(Tenant.created_at.desc())
+            .all()
+        )
+        for tenant in owned_tenants:
+            owned_tenant_map.setdefault(tenant.user_id, []).append(
+                MemberTenantResponse(
+                    tenant_name=tenant.tenant_name,
+                    app_key=tenant.app_key,
+                    status=str(getattr(tenant.status, "value", tenant.status)),
+                )
+            )
 
     return [
         GroupMemberResponse(
@@ -83,6 +105,7 @@ def _build_group_member_items(
                 and binding_map[member.id].app_key in tenant_map
                 else None
             ),
+            owned_tenants=owned_tenant_map.get(member.id, []),
             created_at=member.created_at.isoformat(),
         )
         for member in members
