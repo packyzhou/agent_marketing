@@ -2,7 +2,7 @@ name: Deploy Vue project to GitHub Pages
 
 on:
   push:
-    branches: ['main']   # 根据你的默认分支修改
+    branches: ['master']   # 根据你的默认分支修改
 
 permissions:
   contents: read
