@@ -16,30 +16,30 @@ jobs:
       run:
         working-directory: ./web   # 进入 web 目录执行命令
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'   # 推荐使用 20 LTS，如果你坚持用 24.14.0 可以试试但可能不可用
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Clean cache and dist
+      run: |
+        rm -rf dist node_modules/.vite
+      working-directory: ./web
 
-      - name: Build project
-        run: npm run build
+    - name: Install dependencies
+      run: npm ci
+      working-directory: ./web
 
-      - name: List dist contents (debug)
-        run: ls -la dist   # 确认 dist 目录存在且有 index.html 和 assets
+    - name: Build project
+      run: npm run build
+      working-directory: ./web
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './web/dist'   # 关键：上传构建产物目录，不是 ./_site
+    - name: Check index.html base path
+      run: cat dist/index.html | grep -o 'src="/[^"]*"'
+      working-directory: ./web
 
   deploy:
     environment:
