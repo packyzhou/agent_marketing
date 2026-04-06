@@ -2,7 +2,7 @@ name: Deploy Vue project to GitHub Pages
 
 on:
   push:
-    branches: ['master']   # 根据你的默认分支修改
+    branches: ['master']   # 你的主分支名
 
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./web   # 👈 所有 run 步骤默认在此目录下执行
+        working-directory: ./web   # 进入 web 目录执行命令
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,13 +22,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'        # 改为你的 Node 版本
+          node-version: '20'   # 推荐使用 20 LTS，如果你坚持用 24.14.0 可以试试但可能不可用
 
       - name: Install dependencies
-        run: npm ci                 # 或 yarn install
+        run: npm ci
 
       - name: Build project
-        run: npm run build          # 或 yarn build
+        run: npm run build
+
+      - name: List dist contents (debug)
+        run: ls -la dist   # 确认 dist 目录存在且有 index.html 和 assets
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -36,7 +39,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './web/dist'        # 👈 修改为子目录下的构建产物路径
+          path: './web/dist'   # 关键：上传构建产物目录，不是 ./_site
 
   deploy:
     environment:
