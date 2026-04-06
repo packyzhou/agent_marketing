@@ -9,13 +9,14 @@
           </div>
           <div class="flex flex-col leading-tight">
             <span class="font-black tracking-tighter text-xl uppercase">Agent Market</span>
-            <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Clone Human Intelligence</span>
+            <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">{{ $t('home.subtitle') }}</span>
           </div>
         </router-link>
         <div class="hidden md:flex items-center space-x-10 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          <router-link to="/home" class="hover:text-slate-950 transition-colors py-2">Home</router-link>
-          <router-link to="/docs" class="text-slate-950 transition-colors py-2">Docs</router-link>
-          <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">About</router-link>
+          <router-link to="/home" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.home') }}</router-link>
+          <router-link to="/docs" class="text-slate-950 transition-colors py-2">{{ $t('nav.docs') }}</router-link>
+          <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.about') }}</router-link>
+          <LangSwitcher />
         </div>
       </div>
     </nav>
@@ -24,11 +25,9 @@
     <header class="pt-36 pb-12 px-6 text-center">
       <div class="max-w-3xl mx-auto">
         <h1 class="text-4xl md:text-6xl font-black tracking-tighter mb-6 leading-[1.05]">
-          <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">Documentation</span>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">{{ $t('docs.title') }}</span>
         </h1>
-        <p class="text-lg text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-          Everything you need to deploy, configure, and run the AI Agent Marketing Platform.
-        </p>
+        <p class="text-lg text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">{{ $t('docs.subtitle') }}</p>
       </div>
     </header>
 
@@ -38,7 +37,6 @@
         <!-- Sidebar -->
         <aside class="lg:w-56 flex-shrink-0">
           <div class="lg:sticky lg:top-28">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Contents</div>
             <nav class="space-y-1">
               <a v-for="section in sections" :key="section.id"
                 :href="'#' + section.id"
@@ -61,22 +59,38 @@
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <BookOpen class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Project Overview</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.overview') }}</h2>
             </div>
             <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8 space-y-4">
-              <p class="text-slate-600 leading-relaxed">
-                AI Agent Marketing Platform is a full-featured AI agent SaaS platform supporting multi-tenancy,
-                referral grouping, dual-layer memory system, and token usage analytics. It enables the commercialization
-                of human expertise through AI-powered agent replication.
-              </p>
+              <p class="text-slate-600 leading-relaxed">{{ $t('docs.overviewDesc') }}</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                <div v-for="feature in features" :key="feature.title"
-                  class="bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                <div class="bg-slate-50/50 rounded-xl p-5 border border-slate-100">
                   <div class="flex items-center space-x-2 mb-2">
-                    <component :is="feature.icon" class="w-4 h-4 text-cyan-500" />
-                    <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">{{ feature.title }}</span>
+                    <Shield class="w-4 h-4 text-cyan-500" />
+                    <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">{{ $t('docs.features.multiTenant') }}</span>
                   </div>
-                  <p class="text-sm text-slate-500 leading-relaxed">{{ feature.desc }}</p>
+                  <p class="text-sm text-slate-500 leading-relaxed">{{ $t('docs.features.multiTenantDesc') }}</p>
+                </div>
+                <div class="bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <Brain class="w-4 h-4 text-cyan-500" />
+                    <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">{{ $t('docs.features.dualMemory') }}</span>
+                  </div>
+                  <p class="text-sm text-slate-500 leading-relaxed">{{ $t('docs.features.dualMemoryDesc') }}</p>
+                </div>
+                <div class="bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <BarChart3 class="w-4 h-4 text-cyan-500" />
+                    <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">{{ $t('docs.features.tokenAnalytics') }}</span>
+                  </div>
+                  <p class="text-sm text-slate-500 leading-relaxed">{{ $t('docs.features.tokenAnalyticsDesc') }}</p>
+                </div>
+                <div class="bg-slate-50/50 rounded-xl p-5 border border-slate-100">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <Users class="w-4 h-4 text-cyan-500" />
+                    <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">{{ $t('docs.features.referralGroups') }}</span>
+                  </div>
+                  <p class="text-sm text-slate-500 leading-relaxed">{{ $t('docs.features.referralGroupsDesc') }}</p>
                 </div>
               </div>
             </div>
@@ -88,11 +102,11 @@
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <Layers class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Tech Stack</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.techStack') }}</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Backend</h3>
+                <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">{{ $t('docs.backend') }}</h3>
                 <div class="space-y-2">
                   <div v-for="item in backendStack" :key="item.name" class="flex justify-between items-center py-2 border-b border-slate-50">
                     <span class="text-sm font-bold text-slate-900">{{ item.name }}</span>
@@ -101,7 +115,7 @@
                 </div>
               </div>
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Frontend</h3>
+                <h3 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">{{ $t('docs.frontend') }}</h3>
                 <div class="space-y-2">
                   <div v-for="item in frontendStack" :key="item.name" class="flex justify-between items-center py-2 border-b border-slate-50">
                     <span class="text-sm font-bold text-slate-900">{{ item.name }}</span>
@@ -118,7 +132,7 @@
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <CheckCircle class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Prerequisites</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.prerequisites') }}</h2>
             </div>
             <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
               <ul class="space-y-3">
@@ -138,40 +152,57 @@
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <Zap class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Quick Start</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.quickStart') }}</h2>
             </div>
             <div class="space-y-6">
-              <!-- Docker Deployment -->
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-base font-black mb-4">Option 1: Docker Compose (Recommended)</h3>
+                <h3 class="text-base font-black mb-4">{{ $t('docs.option1') }}</h3>
                 <div class="space-y-4">
-                  <div v-for="(step, idx) in dockerSteps" :key="idx">
+                  <div>
                     <div class="flex items-center space-x-2 mb-2">
-                      <div class="w-6 h-6 rounded-full bg-slate-950 text-white text-xs font-bold flex items-center justify-center">{{ idx + 1 }}</div>
-                      <span class="text-sm font-bold text-slate-700">{{ step.label }}</span>
+                      <div class="w-6 h-6 rounded-full bg-slate-950 text-white text-xs font-bold flex items-center justify-center">1</div>
+                      <span class="text-sm font-bold text-slate-700">{{ $t('docs.dockerSteps.step1') }}</span>
                     </div>
                     <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
-                      <pre class="whitespace-pre">{{ step.code }}</pre>
+                      <pre class="whitespace-pre">git clone https://github.com/packyzhou/agent_marketing.git
+cd agent_marketing</pre>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center space-x-2 mb-2">
+                      <div class="w-6 h-6 rounded-full bg-slate-950 text-white text-xs font-bold flex items-center justify-center">2</div>
+                      <span class="text-sm font-bold text-slate-700">{{ $t('docs.dockerSteps.step2') }}</span>
+                    </div>
+                    <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                      <pre class="whitespace-pre">docker-compose up -d --build</pre>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center space-x-2 mb-2">
+                      <div class="w-6 h-6 rounded-full bg-slate-950 text-white text-xs font-bold flex items-center justify-center">3</div>
+                      <span class="text-sm font-bold text-slate-700">{{ $t('docs.dockerSteps.step3') }}</span>
+                    </div>
+                    <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                      <pre class="whitespace-pre">docker-compose ps
+# All services should show "Up" status</pre>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Startup Script -->
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-base font-black mb-4">Option 2: Startup Script (Windows)</h3>
+                <h3 class="text-base font-black mb-4">{{ $t('docs.option2') }}</h3>
                 <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300">
                   <pre class="whitespace-pre">double-click start.bat</pre>
                 </div>
-                <p class="text-sm text-slate-400 mt-3">The script auto-checks Docker, builds, and starts all services.</p>
+                <p class="text-sm text-slate-400 mt-3">{{ $t('docs.option2Desc') }}</p>
               </div>
 
-              <!-- Local Dev -->
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-base font-black mb-4">Option 3: Local Development</h3>
+                <h3 class="text-base font-black mb-4">{{ $t('docs.option3') }}</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Backend</h4>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">{{ $t('docs.backend') }}</h4>
                     <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
                       <pre class="whitespace-pre">cd server
 python -m venv venv
@@ -181,7 +212,7 @@ uvicorn app.main:app --reload</pre>
                     </div>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Frontend</h4>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">{{ $t('docs.frontend') }}</h4>
                     <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
                       <pre class="whitespace-pre">cd web
 npm install
@@ -193,24 +224,23 @@ npm run dev</pre>
             </div>
           </section>
 
-          <!-- Access & Credentials -->
+          <!-- Access -->
           <section id="access" class="scroll-mt-28">
             <div class="flex items-center space-x-3 mb-6">
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <KeyRound class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Access & Credentials</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.access') }}</h2>
             </div>
             <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div v-for="endpoint in endpoints" :key="endpoint.label"
-                  class="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{{ endpoint.label }}</div>
-                  <p class="text-sm font-bold font-mono text-slate-900">{{ endpoint.url }}</p>
+                <div v-for="ep in endpoints" :key="ep.label" class="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{{ ep.label }}</div>
+                  <p class="text-sm font-bold font-mono text-slate-900">{{ ep.url }}</p>
                 </div>
               </div>
               <div class="mt-6 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl p-5 border border-cyan-100">
-                <div class="text-[10px] font-bold text-cyan-600 uppercase tracking-widest mb-2">Default Admin Account</div>
+                <div class="text-[10px] font-bold text-cyan-600 uppercase tracking-widest mb-2">{{ $t('docs.defaultAdmin') }}</div>
                 <div class="flex items-center space-x-6">
                   <span class="text-sm text-slate-700"><span class="font-bold">Username:</span> admin</span>
                   <span class="text-sm text-slate-700"><span class="font-bold">Password:</span> admin123</span>
@@ -225,7 +255,7 @@ npm run dev</pre>
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <Network class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Architecture</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.architecture') }}</h2>
             </div>
             <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
               <div class="bg-slate-950 rounded-xl p-6 font-mono text-sm text-slate-300 overflow-x-auto">
@@ -246,16 +276,16 @@ npm run dev</pre>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">AI Proxy</h4>
-                  <p class="text-xs text-slate-500">Unified API to multiple LLM providers with stream support</p>
+                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">{{ $t('docs.archBlocks.proxy') }}</h4>
+                  <p class="text-xs text-slate-500">{{ $t('docs.archBlocks.proxyDesc') }}</p>
                 </div>
                 <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">Dual Memory</h4>
-                  <p class="text-xs text-slate-500">KV fact storage + recursive behavior digest compression</p>
+                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">{{ $t('docs.archBlocks.memory') }}</h4>
+                  <p class="text-xs text-slate-500">{{ $t('docs.archBlocks.memoryDesc') }}</p>
                 </div>
                 <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">Token Analytics</h4>
-                  <p class="text-xs text-slate-500">Real-time usage tracking with 30-day trend visualization</p>
+                  <h4 class="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">{{ $t('docs.archBlocks.analytics') }}</h4>
+                  <p class="text-xs text-slate-500">{{ $t('docs.archBlocks.analyticsDesc') }}</p>
                 </div>
               </div>
             </div>
@@ -267,11 +297,11 @@ npm run dev</pre>
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <Settings class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Configuration</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.configuration') }}</h2>
             </div>
             <div class="space-y-6">
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-base font-black mb-4">Memory System</h3>
+                <h3 class="text-base font-black mb-4">{{ $t('docs.memorySystem') }}</h3>
                 <p class="text-sm text-slate-500 mb-4">Edit <code class="bg-slate-100 px-2 py-0.5 rounded text-xs font-mono">server/agent_config.json</code></p>
                 <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
                   <pre class="whitespace-pre">{
@@ -284,7 +314,7 @@ npm run dev</pre>
                 </div>
               </div>
               <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-                <h3 class="text-base font-black mb-4">Environment Variables</h3>
+                <h3 class="text-base font-black mb-4">{{ $t('docs.envVars') }}</h3>
                 <p class="text-sm text-slate-500 mb-4">Edit <code class="bg-slate-100 px-2 py-0.5 rounded text-xs font-mono">docker-compose.yml</code></p>
                 <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
                   <pre class="whitespace-pre">environment:
@@ -295,21 +325,19 @@ npm run dev</pre>
             </div>
           </section>
 
-          <!-- Common Commands -->
+          <!-- Commands -->
           <section id="commands" class="scroll-mt-28">
             <div class="flex items-center space-x-3 mb-6">
               <div class="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center">
                 <Terminal class="w-5 h-5 text-white" />
               </div>
-              <h2 class="text-2xl font-black tracking-tight">Common Commands</h2>
+              <h2 class="text-2xl font-black tracking-tight">{{ $t('docs.sections.commands') }}</h2>
             </div>
-            <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8">
-              <div class="space-y-4">
-                <div v-for="cmd in commands" :key="cmd.label">
-                  <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{{ cmd.label }}</div>
-                  <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
-                    <pre class="whitespace-pre">{{ cmd.code }}</pre>
-                  </div>
+            <div class="bg-white border border-slate-100 rounded-[1.5rem] p-8 space-y-4">
+              <div v-for="cmd in commands" :key="cmd.key">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{{ $t('docs.commands.' + cmd.key) }}</div>
+                <div class="bg-slate-950 rounded-xl p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                  <pre class="whitespace-pre">{{ cmd.code }}</pre>
                 </div>
               </div>
             </div>
@@ -328,68 +356,51 @@ npm run dev</pre>
             </div>
             <span class="font-black text-white tracking-tight uppercase">Agent Market</span>
           </div>
-          <p class="text-slate-500 text-sm leading-relaxed">
-            Redefining "hiring". Commercializing personal experience is the first step towards global productivity equality.
-          </p>
+          <p class="text-slate-500 text-sm leading-relaxed">{{ $t('footer.desc') }}</p>
         </div>
         <div class="grid grid-cols-2 gap-16">
           <div class="flex flex-col space-y-4">
-            <span class="text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-2">Navigate</span>
-            <router-link to="/home" class="text-slate-500 text-sm hover:text-white transition-colors">Home</router-link>
-            <router-link to="/docs" class="text-slate-500 text-sm hover:text-white transition-colors">Docs</router-link>
-            <router-link to="/about" class="text-slate-500 text-sm hover:text-white transition-colors">About</router-link>
+            <span class="text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-2">{{ $t('footer.navigate') }}</span>
+            <router-link to="/home" class="text-slate-500 text-sm hover:text-white transition-colors">{{ $t('nav.home') }}</router-link>
+            <router-link to="/docs" class="text-slate-500 text-sm hover:text-white transition-colors">{{ $t('nav.docs') }}</router-link>
+            <router-link to="/about" class="text-slate-500 text-sm hover:text-white transition-colors">{{ $t('nav.about') }}</router-link>
           </div>
           <div class="flex flex-col space-y-4">
-            <span class="text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-2">Connect</span>
+            <span class="text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-2">{{ $t('footer.connect') }}</span>
             <a href="https://github.com/packyzhou/agent_marketing" class="text-slate-500 text-sm hover:text-white transition-colors">GitHub</a>
           </div>
         </div>
       </div>
       <div class="max-w-6xl mx-auto mt-20 pt-10 border-t border-slate-900 flex justify-between items-center text-[10px] font-bold text-slate-700 uppercase tracking-widest">
-        <span>Mr.Joe &copy; 2026 AI Agent Market.</span>
-        <span>Designed for the intelligence era.</span>
+        <span>{{ $t('footer.copyright') }}</span>
+        <span>{{ $t('footer.slogan') }}</span>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
-  BookOpen,
-  Layers,
-  CheckCircle,
-  Check,
-  Zap,
-  KeyRound,
-  Network,
-  Settings,
-  Terminal,
-  Shield,
-  Brain,
-  BarChart3,
-  Users
+  BookOpen, Layers, CheckCircle, Check, Zap, KeyRound, Network, Settings, Terminal,
+  Shield, Brain, BarChart3, Users
 } from 'lucide-vue-next'
+import LangSwitcher from '../components/LangSwitcher.vue'
 
+const { t } = useI18n()
 const activeSection = ref('overview')
 
-const sections = [
-  { id: 'overview', title: 'Project Overview' },
-  { id: 'tech-stack', title: 'Tech Stack' },
-  { id: 'prerequisites', title: 'Prerequisites' },
-  { id: 'quick-start', title: 'Quick Start' },
-  { id: 'access', title: 'Access & Credentials' },
-  { id: 'architecture', title: 'Architecture' },
-  { id: 'configuration', title: 'Configuration' },
-  { id: 'commands', title: 'Common Commands' }
-]
-
-const features = [
-  { title: 'Multi-Tenancy', desc: 'AppKey/AppSecret auth, tenant-level API isolation, group user binding.', icon: Shield },
-  { title: 'Dual Memory', desc: 'KV fact memory + recursive behavior digest with cross-layer reference detection.', icon: Brain },
-  { title: 'Token Analytics', desc: 'Real-time usage stats, monthly comparison, 30-day trend visualization.', icon: BarChart3 },
-  { title: 'Referral Groups', desc: 'Referral-based user grouping, automatic group creation and tenant sharing.', icon: Users }
-]
+const sections = computed(() => [
+  { id: 'overview', title: t('docs.sections.overview') },
+  { id: 'tech-stack', title: t('docs.sections.techStack') },
+  { id: 'prerequisites', title: t('docs.sections.prerequisites') },
+  { id: 'quick-start', title: t('docs.sections.quickStart') },
+  { id: 'access', title: t('docs.sections.access') },
+  { id: 'architecture', title: t('docs.sections.architecture') },
+  { id: 'configuration', title: t('docs.sections.configuration') },
+  { id: 'commands', title: t('docs.sections.commands') }
+])
 
 const backendStack = [
   { name: 'Python', version: '3.11' },
@@ -411,15 +422,9 @@ const frontendStack = [
 
 const prerequisites = [
   'Docker Desktop 4.0+ (Windows 11 / macOS / Linux)',
-  'At least 4GB available memory',
-  'At least 10GB available disk space',
-  'Ports 80, 3306, 8000 not occupied'
-]
-
-const dockerSteps = [
-  { label: 'Clone the repository', code: 'git clone https://github.com/packyzhou/agent_marketing.git\ncd agent_marketing' },
-  { label: 'Start all services', code: 'docker-compose up -d --build' },
-  { label: 'Wait for startup (1-2 minutes), then verify', code: 'docker-compose ps\n# All services should show "Up" status' }
+  '4GB+ available memory',
+  '10GB+ available disk space',
+  'Ports 80, 3306, 8000 available'
 ]
 
 const endpoints = [
@@ -429,11 +434,11 @@ const endpoints = [
 ]
 
 const commands = [
-  { label: 'View all logs', code: 'docker-compose logs -f' },
-  { label: 'Restart services', code: 'docker-compose restart' },
-  { label: 'Stop services', code: 'docker-compose down' },
-  { label: 'Reset database', code: 'docker-compose down -v\ndocker-compose up -d --build' },
-  { label: 'Rebuild after code changes', code: 'docker-compose down\ndocker-compose up -d --build' }
+  { key: 'viewLogs', code: 'docker-compose logs -f' },
+  { key: 'restart', code: 'docker-compose restart' },
+  { key: 'stop', code: 'docker-compose down' },
+  { key: 'resetDb', code: 'docker-compose down -v\ndocker-compose up -d --build' },
+  { key: 'rebuild', code: 'docker-compose down\ndocker-compose up -d --build' }
 ]
 </script>
 

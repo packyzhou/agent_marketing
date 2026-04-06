@@ -10,26 +10,26 @@
             </div>
             <div class="flex flex-col leading-tight">
               <span class="font-black tracking-tighter text-sm uppercase">Agent Market</span>
-              <span class="text-[8px] font-bold text-slate-400 tracking-[0.15em] uppercase">Admin Console</span>
+              <span class="text-[8px] font-bold text-slate-400 tracking-[0.15em] uppercase">{{ $t('admin.title') }}</span>
             </div>
           </router-link>
         </div>
         <div class="flex items-center space-x-4">
+          <LangSwitcher />
           <span class="text-xs font-bold text-slate-400">{{ displayName }}</span>
           <div class="relative" ref="dropdownRef">
-            <button
-              @click="showDropdown = !showDropdown"
+            <button @click="showDropdown = !showDropdown"
               class="h-9 px-4 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300 flex items-center space-x-1.5">
-              <User class="w-3.5 h-3.5" />
+              <UserIcon class="w-3.5 h-3.5" />
               <ChevronDown class="w-3 h-3" :class="showDropdown ? 'rotate-180' : ''" style="transition: transform 0.2s" />
             </button>
             <div v-if="showDropdown"
               class="absolute right-0 mt-2 w-44 bg-white border border-slate-100 rounded-xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] py-2 z-50">
               <button @click="openProfileDialog" class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                Profile
+                {{ $t('profile.title') }}
               </button>
               <button @click="logout" class="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">
-                Sign Out
+                {{ $t('profile.signOut') }}
               </button>
             </div>
           </div>
@@ -43,18 +43,15 @@
       <aside class="w-52 flex-shrink-0">
         <div class="sticky top-20">
           <div class="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm">
-            <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-3 pt-2 pb-3">Management</div>
+            <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-3 pt-2 pb-3">{{ $t('admin.title') }}</div>
             <nav class="space-y-0.5">
-              <router-link
-                v-for="item in menuItems"
-                :key="item.path"
-                :to="item.path"
+              <router-link v-for="item in menuItems" :key="item.path" :to="item.path"
                 class="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
                 :class="$route.path === item.path
                   ? 'bg-slate-950 text-white font-bold shadow-lg'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'">
                 <component :is="item.icon" class="w-4 h-4" />
-                <span>{{ item.label }}</span>
+                <span>{{ $t(item.labelKey) }}</span>
               </router-link>
             </nav>
           </div>
@@ -70,31 +67,30 @@
     </div>
 
     <!-- Profile Dialog -->
-    <el-dialog v-model="profileVisible" title="Profile" width="480px"
-      :style="{ borderRadius: '1.5rem' }">
-      <el-form :model="profileForm" label-width="90px">
-        <el-form-item label="Username">
+    <el-dialog v-model="profileVisible" :title="$t('profile.title')" width="480px">
+      <el-form :model="profileForm" label-width="100px">
+        <el-form-item :label="$t('profile.username')">
           <el-input v-model="profileForm.username" />
         </el-form-item>
-        <el-form-item label="Phone">
+        <el-form-item :label="$t('profile.phone')">
           <el-input v-model="profileForm.phone" />
         </el-form-item>
-        <el-form-item label="Real Name">
+        <el-form-item :label="$t('profile.realName')">
           <el-input v-model="profileForm.real_name" />
         </el-form-item>
-        <el-form-item label="New Password">
-          <el-input v-model="profileForm.password" type="password" show-password placeholder="Leave blank to keep current" />
+        <el-form-item :label="$t('profile.newPassword')">
+          <el-input v-model="profileForm.password" type="password" show-password :placeholder="$t('profile.newPasswordPh')" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="flex justify-end space-x-3">
           <button @click="profileVisible = false"
             class="px-5 py-2.5 text-sm font-bold text-slate-500 border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
-            Cancel
+            {{ $t('profile.cancel') }}
           </button>
           <button @click="saveProfile"
             class="px-5 py-2.5 text-sm font-bold text-white bg-slate-950 rounded-xl hover:bg-cyan-500 transition-all duration-300">
-            Save
+            {{ $t('profile.save') }}
           </button>
         </div>
       </template>
@@ -105,69 +101,48 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 import {
-  User,
-  ChevronDown,
-  Users,
-  Shield,
-  FolderOpen,
-  Building2,
-  Server,
-  BarChart3,
-  Brain,
-  MessageSquare
+  User as UserIcon, ChevronDown, Users, Shield, FolderOpen,
+  Building2, Server, BarChart3, Brain, MessageSquare
 } from 'lucide-vue-next'
+import LangSwitcher from '../../components/LangSwitcher.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const profileVisible = ref(false)
 const showDropdown = ref(false)
 const dropdownRef = ref(null)
-const profileForm = ref({
-  username: '',
-  phone: '',
-  real_name: '',
-  password: ''
-})
+const profileForm = ref({ username: '', phone: '', real_name: '', password: '' })
 
 const menuItems = [
-  { path: '/admin/users', label: 'Users', icon: Users },
-  { path: '/admin/roles', label: 'Roles', icon: Shield },
-  { path: '/admin/groups', label: 'Groups', icon: FolderOpen },
-  { path: '/admin/tenants', label: 'Tenants', icon: Building2 },
-  { path: '/admin/providers', label: 'Providers', icon: Server },
-  { path: '/admin/tokens', label: 'Tokens', icon: BarChart3 },
-  { path: '/admin/memory', label: 'Memory', icon: Brain },
-  { path: '/admin/proxy-debug', label: 'Chat Debug', icon: MessageSquare }
+  { path: '/admin/users', labelKey: 'admin.menu.users', icon: Users },
+  { path: '/admin/roles', labelKey: 'admin.menu.roles', icon: Shield },
+  { path: '/admin/groups', labelKey: 'admin.menu.groups', icon: FolderOpen },
+  { path: '/admin/tenants', labelKey: 'admin.menu.tenants', icon: Building2 },
+  { path: '/admin/providers', labelKey: 'admin.menu.providers', icon: Server },
+  { path: '/admin/tokens', labelKey: 'admin.menu.tokens', icon: BarChart3 },
+  { path: '/admin/memory', labelKey: 'admin.menu.memory', icon: Brain },
+  { path: '/admin/proxy-debug', labelKey: 'admin.menu.chatDebug', icon: MessageSquare }
 ]
 
-const displayName = computed(() => {
-  return localStorage.getItem('username') || 'User'
-})
+const displayName = computed(() => localStorage.getItem('username') || 'User')
 
 const handleClickOutside = (e) => {
-  if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
-    showDropdown.value = false
-  }
+  if (dropdownRef.value && !dropdownRef.value.contains(e.target)) showDropdown.value = false
 }
-
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
 const getErrorMessage = (error, fallback) => {
   const detail = error?.response?.data?.detail
-  if (typeof detail === 'string' && detail) {
-    return detail
-  }
+  if (typeof detail === 'string' && detail) return detail
   if (Array.isArray(detail) && detail.length > 0) {
     const first = detail[0]
-    if (typeof first === 'string') {
-      return first
-    }
-    if (first?.msg) {
-      return first.msg
-    }
+    if (typeof first === 'string') return first
+    if (first?.msg) return first.msg
   }
   return fallback
 }
@@ -176,22 +151,17 @@ const openProfileDialog = async () => {
   showDropdown.value = false
   try {
     const response = await api.get('/user/profile')
-    profileForm.value = {
-      username: response.username || '',
-      phone: response.phone || '',
-      real_name: response.real_name || '',
-      password: ''
-    }
+    profileForm.value = { username: response.username || '', phone: response.phone || '', real_name: response.real_name || '', password: '' }
     profileVisible.value = true
   } catch (error) {
-    ElMessage.error('Failed to load profile')
+    ElMessage.error(t('profile.loadFail'))
   }
 }
 
 const saveProfile = async () => {
   const password = profileForm.value.password?.trim() || ''
   if (password && password.length <= 6) {
-    ElMessage.error('Password must be longer than 6 characters')
+    ElMessage.error(t('profile.passwordTooShort'))
     return
   }
   try {
@@ -203,10 +173,10 @@ const saveProfile = async () => {
     }
     await api.put('/user/profile', payload)
     localStorage.setItem('username', payload.username)
-    ElMessage.success('Saved successfully')
+    ElMessage.success(t('profile.saveSuccess'))
     profileVisible.value = false
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, 'Save failed'))
+    ElMessage.error(getErrorMessage(error, t('profile.saveFail')))
   }
 }
 

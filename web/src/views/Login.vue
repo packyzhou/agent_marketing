@@ -9,13 +9,14 @@
           </div>
           <div class="flex flex-col leading-tight">
             <span class="font-black tracking-tighter text-xl uppercase">Agent Market</span>
-            <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Clone Human Intelligence</span>
+            <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">{{ $t('home.subtitle') }}</span>
           </div>
         </router-link>
         <div class="hidden md:flex items-center space-x-10 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          <router-link to="/home" class="hover:text-slate-950 transition-colors py-2">Home</router-link>
-          <router-link to="/docs" class="hover:text-slate-950 transition-colors py-2">Docs</router-link>
-          <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">About</router-link>
+          <router-link to="/home" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.home') }}</router-link>
+          <router-link to="/docs" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.docs') }}</router-link>
+          <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.about') }}</router-link>
+          <LangSwitcher />
         </div>
       </div>
     </nav>
@@ -25,9 +26,10 @@
       <div class="w-full max-w-md">
         <div class="text-center mb-10">
           <h1 class="text-3xl font-black tracking-tighter mb-3">
-            Welcome <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">Back</span>
+            {{ $t('login.welcome') }}
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">{{ $t('login.back') }}</span>
           </h1>
-          <p class="text-sm text-slate-400 font-medium">Sign in to access the AI Agent platform</p>
+          <p class="text-sm text-slate-400 font-medium">{{ $t('login.subtitle') }}</p>
         </div>
 
         <div class="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)]">
@@ -37,87 +39,64 @@
               class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all"
               :class="activeTab === 'login' ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'"
               @click="activeTab = 'login'">
-              Sign In
+              {{ $t('login.signIn') }}
             </button>
             <button
               class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all"
               :class="activeTab === 'register' ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'"
               @click="activeTab = 'register'">
-              Register
+              {{ $t('login.register') }}
             </button>
           </div>
 
-          <!-- Login Form -->
+          <!-- Login -->
           <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-5">
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Username</label>
-              <input
-                v-model="loginForm.username"
-                type="text"
-                placeholder="Enter username"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.username') }}</label>
+              <input v-model="loginForm.username" type="text" :placeholder="$t('login.usernamePh')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Password</label>
-              <input
-                v-model="loginForm.password"
-                type="password"
-                placeholder="Enter password"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.password') }}</label>
+              <input v-model="loginForm.password" type="password" :placeholder="$t('login.passwordPh')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
-            <button
-              type="submit"
+            <button type="submit"
               class="w-full py-3.5 bg-slate-950 text-white text-sm font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300 shadow-2xl shadow-slate-200 mt-2">
-              Sign In
+              {{ $t('login.signInBtn') }}
             </button>
           </form>
 
-          <!-- Register Form -->
+          <!-- Register -->
           <form v-else @submit.prevent="handleRegister" class="space-y-4">
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Username *</label>
-              <input
-                v-model="registerForm.username"
-                type="text"
-                placeholder="Account name"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.username') }} *</label>
+              <input v-model="registerForm.username" type="text" :placeholder="$t('login.usernamePh')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Phone *</label>
-              <input
-                v-model="registerForm.phone"
-                type="text"
-                placeholder="Phone number"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.phone') }} *</label>
+              <input v-model="registerForm.phone" type="text" :placeholder="$t('login.phonePh')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Real Name</label>
-              <input
-                v-model="registerForm.real_name"
-                type="text"
-                placeholder="Optional"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.realName') }}</label>
+              <input v-model="registerForm.real_name" type="text" :placeholder="$t('login.optional')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Password *</label>
-              <input
-                v-model="registerForm.password"
-                type="password"
-                placeholder="Must be longer than 6 characters"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.password') }} *</label>
+              <input v-model="registerForm.password" type="password" :placeholder="$t('login.passwordRule')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Referrer Phone</label>
-              <input
-                v-model="registerForm.referrer_phone"
-                type="text"
-                placeholder="Optional"
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{{ $t('login.referrerPhone') }}</label>
+              <input v-model="registerForm.referrer_phone" type="text" :placeholder="$t('login.optional')"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
             </div>
-            <button
-              type="submit"
+            <button type="submit"
               class="w-full py-3.5 bg-slate-950 text-white text-sm font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300 shadow-2xl shadow-slate-200 mt-2">
-              Create Account
+              {{ $t('login.registerBtn') }}
             </button>
           </form>
         </div>
@@ -129,36 +108,24 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import api from '../api/request'
+import LangSwitcher from '../components/LangSwitcher.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 const activeTab = ref('login')
-const loginForm = ref({
-  username: '',
-  password: ''
-})
-const registerForm = ref({
-  username: '',
-  phone: '',
-  real_name: '',
-  password: '',
-  referrer_phone: ''
-})
+const loginForm = ref({ username: '', password: '' })
+const registerForm = ref({ username: '', phone: '', real_name: '', password: '', referrer_phone: '' })
 
 const getErrorMessage = (error, fallback) => {
   const detail = error?.response?.data?.detail
-  if (typeof detail === 'string' && detail) {
-    return detail
-  }
+  if (typeof detail === 'string' && detail) return detail
   if (Array.isArray(detail) && detail.length > 0) {
     const first = detail[0]
-    if (typeof first === 'string') {
-      return first
-    }
-    if (first?.msg) {
-      return first.msg
-    }
+    if (typeof first === 'string') return first
+    if (first?.msg) return first.msg
   }
   return fallback
 }
@@ -171,14 +138,14 @@ const handleLogin = async () => {
     localStorage.setItem('roleName', res.role_name || res.role || '普通用户')
     localStorage.setItem('roleType', (res.role_type || 'USER').toUpperCase())
     localStorage.setItem('username', res.username || loginForm.value.username)
-    ElMessage.success('Login successful')
+    ElMessage.success(t('login.loginSuccess'))
     if ((res.role_type || '').toUpperCase() === 'ADMIN') {
       router.push('/admin/users')
       return
     }
     router.push('/user/dashboard')
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, 'Login failed'))
+    ElMessage.error(getErrorMessage(error, t('login.loginFail')))
   }
 }
 
@@ -190,34 +157,25 @@ const handleRegister = async () => {
   const referrerPhone = registerForm.value.referrer_phone.trim()
 
   if (!username || !phone || !password) {
-    ElMessage.error('Username, phone, and password are required')
+    ElMessage.error(t('login.required'))
     return
   }
-
   if (password.length <= 6) {
-    ElMessage.error('Password must be longer than 6 characters')
+    ElMessage.error(t('login.passwordTooShort'))
     return
   }
 
   try {
     await api.post('/auth/register', {
-      username,
-      phone,
-      password,
+      username, phone, password,
       real_name: realName || null,
       referrer_phone: referrerPhone || null
     })
-    ElMessage.success('Registration successful, please sign in')
-    registerForm.value = {
-      username: '',
-      phone: '',
-      real_name: '',
-      password: '',
-      referrer_phone: ''
-    }
+    ElMessage.success(t('login.registerSuccess'))
+    registerForm.value = { username: '', phone: '', real_name: '', password: '', referrer_phone: '' }
     activeTab.value = 'login'
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, 'Registration failed'))
+    ElMessage.error(getErrorMessage(error, t('login.registerFail')))
   }
 }
 </script>
