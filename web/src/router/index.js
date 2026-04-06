@@ -5,6 +5,21 @@ import UserLayout from '../views/user/Layout.vue'
 
 const routes = [
   {
+    path: '/home',
+    name: 'Home',
+    component: () => import('../views/Home.vue')
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: () => import('../views/About.vue')
+  },
+  {
+    path: '/docs',
+    name: 'Docs',
+    component: () => import('../views/Docs.vue')
+  },
+  {
     path: '/login',
     name: 'Login',
     component: Login
@@ -98,7 +113,7 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/login'
+    redirect: '/home'
   }
 ]
 
@@ -107,11 +122,13 @@ const router = createRouter({
   routes
 })
 
+const publicPaths = ['/login', '/home', '/about', '/docs']
+
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const roleType = (localStorage.getItem('roleType') || '').toUpperCase()
 
-  if (to.path === '/login') {
+  if (publicPaths.includes(to.path)) {
     next()
     return
   }

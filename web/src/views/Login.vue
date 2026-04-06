@@ -1,50 +1,127 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-100">
-    <div class="bg-white p-8 rounded-lg shadow-md w-96">
-      <h2 class="text-2xl font-bold mb-6 text-center" style="color: #00796B">AI智能体平台</h2>
+  <div class="min-h-screen bg-white font-sans text-slate-900 antialiased flex flex-col">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 z-50">
+      <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+        <router-link to="/home" class="flex items-center space-x-3 group cursor-pointer">
+          <div class="h-16 w-24 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+            <img src="/logo_main_page.png" alt="Logo" class="w-full h-full object-contain mix-blend-multiply" />
+          </div>
+          <div class="flex flex-col leading-tight">
+            <span class="font-black tracking-tighter text-xl uppercase">Agent Market</span>
+            <span class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Clone Human Intelligence</span>
+          </div>
+        </router-link>
+        <div class="hidden md:flex items-center space-x-10 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+          <router-link to="/home" class="hover:text-slate-950 transition-colors py-2">Home</router-link>
+          <router-link to="/docs" class="hover:text-slate-950 transition-colors py-2">Docs</router-link>
+          <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">About</router-link>
+        </div>
+      </div>
+    </nav>
 
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="登录" name="login">
-          <el-form :model="loginForm" @submit.prevent="handleLogin">
-            <el-form-item>
-              <el-input v-model="loginForm.username" placeholder="用户名" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="loginForm.password" type="password" placeholder="密码" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleLogin" class="w-full" style="background-color: #00796B">
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
+    <!-- Login Form -->
+    <div class="flex-1 flex items-center justify-center pt-20 px-6">
+      <div class="w-full max-w-md">
+        <div class="text-center mb-10">
+          <h1 class="text-3xl font-black tracking-tighter mb-3">
+            Welcome <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-600">Back</span>
+          </h1>
+          <p class="text-sm text-slate-400 font-medium">Sign in to access the AI Agent platform</p>
+        </div>
 
-        <el-tab-pane label="注册" name="register">
-          <el-form :model="registerForm" @submit.prevent="handleRegister">
-            <el-form-item>
-              <el-input v-model="registerForm.username" placeholder="用户账号（必填）" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="registerForm.phone" placeholder="手机号（必填）" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="registerForm.real_name" placeholder="真实姓名（选填）" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="registerForm.password" type="password" placeholder="密码（长度需大于6位）" />
-            </el-form-item>
-            <el-form-item>
-              <el-input v-model="registerForm.referrer_phone" placeholder="推荐人手机号（选填）" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleRegister" class="w-full" style="background-color: #00796B">
-                注册
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
+        <div class="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)]">
+          <!-- Tabs -->
+          <div class="flex mb-8 bg-slate-50 rounded-xl p-1">
+            <button
+              class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all"
+              :class="activeTab === 'login' ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'"
+              @click="activeTab = 'login'">
+              Sign In
+            </button>
+            <button
+              class="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all"
+              :class="activeTab === 'register' ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'"
+              @click="activeTab = 'register'">
+              Register
+            </button>
+          </div>
+
+          <!-- Login Form -->
+          <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="space-y-5">
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Username</label>
+              <input
+                v-model="loginForm.username"
+                type="text"
+                placeholder="Enter username"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Password</label>
+              <input
+                v-model="loginForm.password"
+                type="password"
+                placeholder="Enter password"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <button
+              type="submit"
+              class="w-full py-3.5 bg-slate-950 text-white text-sm font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300 shadow-2xl shadow-slate-200 mt-2">
+              Sign In
+            </button>
+          </form>
+
+          <!-- Register Form -->
+          <form v-else @submit.prevent="handleRegister" class="space-y-4">
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Username *</label>
+              <input
+                v-model="registerForm.username"
+                type="text"
+                placeholder="Account name"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Phone *</label>
+              <input
+                v-model="registerForm.phone"
+                type="text"
+                placeholder="Phone number"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Real Name</label>
+              <input
+                v-model="registerForm.real_name"
+                type="text"
+                placeholder="Optional"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Password *</label>
+              <input
+                v-model="registerForm.password"
+                type="password"
+                placeholder="Must be longer than 6 characters"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Referrer Phone</label>
+              <input
+                v-model="registerForm.referrer_phone"
+                type="text"
+                placeholder="Optional"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium placeholder-slate-300 focus:outline-none focus:border-slate-300 focus:bg-white transition-all" />
+            </div>
+            <button
+              type="submit"
+              class="w-full py-3.5 bg-slate-950 text-white text-sm font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300 shadow-2xl shadow-slate-200 mt-2">
+              Create Account
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -94,14 +171,14 @@ const handleLogin = async () => {
     localStorage.setItem('roleName', res.role_name || res.role || '普通用户')
     localStorage.setItem('roleType', (res.role_type || 'USER').toUpperCase())
     localStorage.setItem('username', res.username || loginForm.value.username)
-    ElMessage.success('登录成功')
+    ElMessage.success('Login successful')
     if ((res.role_type || '').toUpperCase() === 'ADMIN') {
       router.push('/admin/users')
       return
     }
     router.push('/user/dashboard')
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, '登录失败'))
+    ElMessage.error(getErrorMessage(error, 'Login failed'))
   }
 }
 
@@ -113,12 +190,12 @@ const handleRegister = async () => {
   const referrerPhone = registerForm.value.referrer_phone.trim()
 
   if (!username || !phone || !password) {
-    ElMessage.error('用户账号、手机号、密码为必填项')
+    ElMessage.error('Username, phone, and password are required')
     return
   }
 
   if (password.length <= 6) {
-    ElMessage.error('密码长度必须大于6位')
+    ElMessage.error('Password must be longer than 6 characters')
     return
   }
 
@@ -130,7 +207,7 @@ const handleRegister = async () => {
       real_name: realName || null,
       referrer_phone: referrerPhone || null
     })
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success('Registration successful, please sign in')
     registerForm.value = {
       username: '',
       phone: '',
@@ -140,7 +217,11 @@ const handleRegister = async () => {
     }
     activeTab.value = 'login'
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, '注册失败'))
+    ElMessage.error(getErrorMessage(error, 'Registration failed'))
   }
 }
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+</style>
