@@ -14,32 +14,32 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./web   # 进入 web 目录执行命令
+        working-directory: ./web   # 所有 run 命令默认在 ./web 下执行
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Clean cache and dist
-      run: |
-        rm -rf dist node_modules/.vite
-      working-directory: ./web
+      - name: Clean cache and dist
+        run: rm -rf dist node_modules/.vite   # 不需要再写 working-directory
 
-    - name: Install dependencies
-      run: npm ci
-      working-directory: ./web
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Build project
-      run: npm run build
-      working-directory: ./web
+      - name: Build project
+        run: npm run build
 
-    - name: Check index.html base path
-      run: cat dist/index.html | grep -o 'src="/[^"]*"'
-      working-directory: ./web
+      - name: Check index.html base path
+        run: cat dist/index.html | grep -o 'src="/[^"]*"'
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './web/dist'   # 注意：这里需要相对于仓库根目录的路径，因为 upload-pages-artifact 不在 defaults 作用域内
 
   deploy:
     environment:
