@@ -108,7 +108,7 @@ const renderedContent = computed(() => {
 
 const formatDate = (iso) => {
   if (!iso) return ''
-  return new Date(iso).toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' })
+  return iso
 }
 
 const load = async () => {

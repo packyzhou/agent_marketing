@@ -5,6 +5,7 @@ from sqlalchemy import and_
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
 from ...core.snowflake import generate_snowflake_id
+from ...core.utils import dt_to_local_str
 from ...models.provider import Provider, ProviderKey, ProviderStatus
 from ...models.tenant import Tenant
 from ...models.user import User
@@ -198,7 +199,7 @@ async def list_provider_keys(
             provider_name=provider.name,
             api_key=key.api_key[:10] + "..." if len(key.api_key) > 10 else key.api_key,
             model_name=key.model_name,
-            created_at=key.created_at.isoformat(),
+            created_at=dt_to_local_str(key.created_at),
         )
         for key, provider in records
     ]
@@ -234,7 +235,7 @@ async def list_tenant_provider_keys(
             provider_name=provider.name,
             api_key=key.api_key[:10] + "..." if len(key.api_key) > 10 else key.api_key,
             model_name=key.model_name,
-            created_at=key.created_at.isoformat(),
+            created_at=dt_to_local_str(key.created_at),
         )
         for key, provider in records
     ]
@@ -286,7 +287,7 @@ async def create_tenant_provider_key(
                 else existed.api_key
             ),
             model_name=existed.model_name,
-            created_at=existed.created_at.isoformat(),
+            created_at=dt_to_local_str(existed.created_at),
         )
 
     key = ProviderKey(
@@ -310,7 +311,7 @@ async def create_tenant_provider_key(
         provider_name=provider.name,
         api_key=key.api_key[:10] + "..." if len(key.api_key) > 10 else key.api_key,
         model_name=key.model_name,
-        created_at=key.created_at.isoformat(),
+        created_at=dt_to_local_str(key.created_at),
     )
 
 

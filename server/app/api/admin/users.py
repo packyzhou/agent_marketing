@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user, get_role_name, get_role_type
+from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.tenant import Tenant
 from pydantic import BaseModel
@@ -48,7 +49,7 @@ def _to_user_response(db: Session, user: User) -> UserResponse:
         role_type=get_role_type(db, user.role),
         referral_id=str(user.referral_id) if user.referral_id is not None else None,
         group_id=str(user.group_id) if user.group_id is not None else None,
-        created_at=user.created_at.isoformat()
+        created_at=dt_to_local_str(user.created_at)
     )
 
 

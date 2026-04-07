@@ -4,6 +4,7 @@ from typing import List, Optional
 import os
 from ...core.database import get_db
 from ...core.deps import get_current_user
+from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
@@ -69,8 +70,8 @@ async def list_user_memory(
                 else 0
             ),
             last_processed_at=(
-                memory_map[tenant.app_key].last_updated.isoformat()
-                if tenant.app_key in memory_map and memory_map[tenant.app_key].last_updated
+                dt_to_local_str(memory_map[tenant.app_key].last_updated)
+                if tenant.app_key in memory_map
                 else None
             ),
             has_kv_file=bool(
@@ -114,7 +115,5 @@ async def get_user_memory(
         kv_content=kv_content,
         digest_content=digest_content,
         rounds_count=memory_meta.last_processed_round or 0,
-        last_processed_at=(
-            memory_meta.last_updated.isoformat() if memory_meta.last_updated else None
-        ),
+        last_processed_at=dt_to_local_str(memory_meta.last_updated),
     )

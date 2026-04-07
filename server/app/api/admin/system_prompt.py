@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
+from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.system_prompt import SystemPrompt
 
@@ -36,8 +37,8 @@ def _to_response(sp: SystemPrompt) -> SystemPromptResponse:
         id=sp.id,
         prompt_type=sp.prompt_type,
         content=sp.content,
-        created_at=sp.created_at.isoformat() if sp.created_at else "",
-        updated_at=sp.updated_at.isoformat() if sp.updated_at else "",
+        created_at=dt_to_local_str(sp.created_at) or "",
+        updated_at=dt_to_local_str(sp.updated_at) or "",
     )
 
 

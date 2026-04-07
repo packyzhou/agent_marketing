@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from datetime import timezone
 from pathlib import Path
 from sqlalchemy.orm import Session
 from ..models.memory import MemoryMeta
@@ -130,7 +131,8 @@ async def _process_memory_with_ai(app_key: str) -> None:
         dialogs = [
             {
                 "time": (
-                    c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else ""
+                    c.created_at.replace(tzinfo=timezone.utc).astimezone(tz=None).strftime("%Y-%m-%d %H:%M:%S")
+                    if c.created_at else ""
                 ),
                 "user": c.user_message,
                 "ai": c.ai_response,

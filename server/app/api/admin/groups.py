@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
+from ...core.utils import dt_to_local_str
 from ...models.user import User, Group, GroupMemberAppBinding
 from ...models.tenant import Tenant
 from pydantic import BaseModel, Field
@@ -106,7 +107,7 @@ def _build_group_member_items(
                 else None
             ),
             owned_tenants=owned_tenant_map.get(member.id, []),
-            created_at=member.created_at.isoformat(),
+            created_at=dt_to_local_str(member.created_at),
         )
         for member in members
     ]
@@ -153,7 +154,7 @@ async def list_groups(
                 owner_username=owner.username,
                 owner_phone=owner.phone,
                 member_count=member_count,
-                created_at=group.created_at.isoformat(),
+                created_at=dt_to_local_str(group.created_at),
             )
         )
 

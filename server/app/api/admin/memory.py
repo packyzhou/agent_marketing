@@ -4,6 +4,7 @@ from typing import Optional
 import os
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
+from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
@@ -56,7 +57,7 @@ async def get_memory(
         kv_content=kv_content,
         digest_content=digest_content,
         rounds_count=memory_meta.last_processed_round or 0,
-        last_processed_at=memory_meta.last_updated.isoformat() if memory_meta.last_updated else None
+        last_processed_at=dt_to_local_str(memory_meta.last_updated)
     )
 
 @router.get("/memory", response_model=list[MemoryListResponse])
@@ -79,7 +80,7 @@ async def list_all_memory(
             app_key=mem.app_key,
             tenant_name=tenant_map[mem.app_key].tenant_name if mem.app_key in tenant_map else None,
             rounds_count=mem.last_processed_round or 0,
-            last_processed_at=mem.last_updated.isoformat() if mem.last_updated else None,
+            last_processed_at=dt_to_local_str(mem.last_updated),
             has_kv_file=bool(mem.kv_file_path and os.path.exists(mem.kv_file_path)),
             has_digest_file=bool(mem.digest_file_path and os.path.exists(mem.digest_file_path))
         )

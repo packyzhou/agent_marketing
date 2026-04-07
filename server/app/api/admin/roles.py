@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user, get_role_type
+from ...core.utils import dt_to_local_str
 from ...models.user import User, Role, RoleType
 from pydantic import BaseModel, field_validator
 
@@ -98,7 +99,7 @@ def _to_role_response(db: Session, role: Role) -> RoleResponse:
         description=role.description,
         is_system=bool(role.is_system),
         user_count=user_count,
-        created_at=role.created_at.isoformat(),
+        created_at=dt_to_local_str(role.created_at),
     )
 
 
