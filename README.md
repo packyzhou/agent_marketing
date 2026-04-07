@@ -236,6 +236,10 @@ Users, Roles & Permissions, Groups, Tenants, Providers, Token Stats, Memory View
 Dashboard (charts), My Tenants, Groups, Group Tenants, Tokens, Memory, Chat Debug (streaming SSE).
 
 ---
+## 流程图 / flow chart
+<img src="web/public/skill_marketing.png" alt="Agent Market skill flow" />
+
+---
 
 ## Changelog / 更新日志 / 更新履歴
 
