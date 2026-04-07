@@ -138,6 +138,11 @@ async def _process_memory_with_ai(app_key: str) -> None:
             for c in convs
         ]
 
+        # 读取完毕后立即删除本次对话记录，避免重复处理
+        conv_ids = [c.id for c in convs]
+        db.query(Conversation).filter(Conversation.id.in_(conv_ids)).delete(synchronize_session=False)
+        db.commit()
+
         # 2. 读取记忆元数据，确保记录存在，并读取文件内容
         meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
         if not meta:
