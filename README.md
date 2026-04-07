@@ -2,6 +2,7 @@
   <img src="web/public/logo_main_page.png" alt="Agent Market Logo" width="200" />
 
   # Agent Market
+  <a href="https://packyzhou.github.io/agent_marketing/">访问主页</a>
 
   **Clone Human Intelligence — Monetize Expertise Through AI**
 
