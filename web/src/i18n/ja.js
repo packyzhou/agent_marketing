@@ -143,6 +143,7 @@ export default {
       providers: 'プロバイダー管理',
       tokens: 'トークン統計',
       memory: 'メモリ閲覧',
+      systemPrompts: 'プロンプト管理',
       chatDebug: 'チャットデバッグ'
     }
   },

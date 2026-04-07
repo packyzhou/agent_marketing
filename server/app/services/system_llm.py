@@ -12,11 +12,17 @@ agent_config.json example:
         "model": "qwen-turbo"
       }
     }
+
+When prompt_type is passed to system_chat_completion, the matching system prompt
+is loaded from tb_system_prompt and prepended to the conversation automatically.
+Each caller is responsible for supplying the appropriate prompt_type.
 """
 
 import json
 from pathlib import Path
-from typing import Dict, Any, AsyncIterator
+from typing import Dict, Any, AsyncIterator, Optional
+
+from sqlalchemy.orm import Session
 
 from .llm_base import BaseLLM
 from .llm_factory import get_llm_client
@@ -43,10 +49,7 @@ def get_system_llm_client() -> BaseLLM:
             "system_llm is not configured in agent_config.json. "
             "Add a 'system_llm' section with provider, api_key, base_url, and model."
         )
-    provider = cfg.get("provider", "openai")
-    api_key = cfg.get("api_key", "")
-    base_url = cfg.get("base_url", "")
-    return get_llm_client(provider, api_key, base_url)
+    return get_llm_client(cfg.get("provider", "openai"), cfg.get("api_key", ""), cfg.get("base_url", ""))
 
 
 def get_system_model() -> str:
@@ -54,22 +57,58 @@ def get_system_model() -> str:
     return _load_system_llm_config().get("model", "gpt-3.5-turbo")
 
 
+def get_system_prompt_content(db: Session, prompt_type: str) -> Optional[str]:
+    """Look up system prompt content by an explicit prompt_type.
+
+    Returns None when prompt_type is empty or no matching record exists.
+    """
+    if not prompt_type or not prompt_type.strip():
+        return None
+
+    from ..models.system_prompt import SystemPrompt  # avoid circular import at module level
+
+    sp = db.query(SystemPrompt).filter(SystemPrompt.prompt_type == prompt_type.strip()).first()
+    return sp.content if sp else None
+
+
 async def system_chat_completion(
     messages: list,
     stream: bool = False,
     extra_body: Dict[str, Any] | None = None,
+    db: Optional[Session] = None,
+    prompt_type: Optional[str] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
-    """Convenience wrapper: call the system LLM with the given messages.
+    """Call the system LLM.
+
+    When both db and prompt_type are supplied, the matching system prompt from
+    tb_system_prompt is prepended to the messages as a system role message.
+
+    Args:
+        messages:    Conversation messages (list of dicts).
+        stream:      Whether to stream the response.
+        extra_body:  Extra parameters forwarded to the model API.
+        db:          SQLAlchemy session used to look up the system prompt.
+        prompt_type: Identifier of the system prompt to prepend.
+                     The caller is responsible for passing the right value;
+                     the memory module reads memory_processing.prompt_type
+                     from agent_config.json and passes it here explicitly.
 
     Usage (non-streaming):
-        async for chunk in system_chat_completion(messages):
+        async for chunk in system_chat_completion(messages, db=db, prompt_type="foo"):
             result = chunk
 
     Usage (streaming):
-        async for chunk in system_chat_completion(messages, stream=True):
+        async for chunk in system_chat_completion(messages, stream=True, db=db, prompt_type="foo"):
             ...
     """
+    final_messages = list(messages)
+
+    if db is not None and prompt_type:
+        prompt_content = get_system_prompt_content(db, prompt_type)
+        if prompt_content:
+            final_messages = [{"role": "system", "content": prompt_content}] + final_messages
+
     client = get_system_llm_client()
     model = get_system_model()
-    async for chunk in client.chat_completion(messages, model, stream, extra_body):
+    async for chunk in client.chat_completion(final_messages, model, stream, extra_body):
         yield chunk

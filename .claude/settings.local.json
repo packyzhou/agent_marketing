@@ -18,7 +18,18 @@
       "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
       "Bash(curl -s -I -X GET \"http://localhost:8000/api/user/providers\" -H \"Authorization: Bearer $\\(curl -s -X POST http://localhost:8000/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
       "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 40460\")",
+      "Bash(tasklist)",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" http://localhost:3001/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" http://localhost:8000/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(curl -v http://localhost:3001/api/auth/login -X POST -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl --max-time 10 http://localhost:8000/api/auth/login -X POST -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl --max-time 5 http://localhost:8000/)",
+      "Bash(python -c ':*)",
+      "Bash(wmic process:*)"
     ]
   }
 }

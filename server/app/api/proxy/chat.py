@@ -10,7 +10,7 @@ from ...models.provider import ProviderKey, Provider
 from ...models.conversation import Conversation
 from ...services.llm_factory import get_llm_client
 from ...services.token_service import update_token_stats, save_conversation_token_usage
-from ...services.memory_service import load_memory, should_process_memory
+from ...services.memory_service import load_memory, schedule_memory_processing
 import json
 import httpx
 
@@ -189,7 +189,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
         )
-        await should_process_memory(db, app_key, round_number)
+        schedule_memory_processing(app_key)
         persisted = True
 
     async def generate():
@@ -286,7 +286,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         completion_tokens=completion_tokens,
         total_tokens=total_tokens,
     )
-    await should_process_memory(db, app_key, round_number)
+    schedule_memory_processing(app_key)
     return result
 
 

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -command ':*)",
+      "Bash(/c/ProgramData/anaconda3/python.exe -c \"import uvicorn; print\\(uvicorn.__version__\\)\")"
+    ]
+  }
+}

@@ -9,7 +9,8 @@
   "memory_processing": {
     "rounds_threshold": 5,
     "enable_auto_processing": true,
-    "digest_rounds": 10
+    "digest_rounds": 5,
+    "prompt_type": "menmory_unit"
   },
   "system_llm": {
     "provider": "qwen",

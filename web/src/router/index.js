@@ -64,6 +64,11 @@ const routes = [
         component: () => import('../views/admin/Memory.vue')
       },
       {
+        path: 'system-prompts',
+        name: 'AdminSystemPrompts',
+        component: () => import('../views/admin/SystemPrompts.vue')
+      },
+      {
         path: 'proxy-debug',
         name: 'AdminProxyDebug',
         component: () => import('../views/user/ProxyDebug.vue')
