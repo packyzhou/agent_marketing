@@ -10,6 +10,16 @@ const routes = [
     component: () => import('../views/Home.vue')
   },
   {
+    path: '/market',
+    name: 'Market',
+    component: () => import('../views/Market.vue')
+  },
+  {
+    path: '/payment',
+    name: 'Payment',
+    component: () => import('../views/Payment.vue')
+  },
+  {
     path: '/about',
     name: 'About',
     component: () => import('../views/About.vue')
@@ -62,6 +72,11 @@ const routes = [
         path: 'memory',
         name: 'AdminMemory',
         component: () => import('../views/admin/Memory.vue')
+      },
+      {
+        path: 'system-prompts',
+        name: 'AdminSystemPrompts',
+        component: () => import('../views/admin/SystemPrompts.vue')
       },
       {
         path: 'proxy-debug',
@@ -122,9 +137,9 @@ const router = createRouter({
   routes
 })
 
-const publicPaths = ['/login', '/home', '/about', '/docs']
+const publicPaths = ['/login', '/home', '/about', '/docs', '/market', '/payment']
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
   const roleType = (localStorage.getItem('roleType') || '').toUpperCase()
 

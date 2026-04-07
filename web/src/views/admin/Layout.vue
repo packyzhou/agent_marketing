@@ -106,7 +106,7 @@ import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 import {
   User as UserIcon, ChevronDown, Users, Shield, FolderOpen,
-  Building2, Server, BarChart3, Brain, MessageSquare
+  Building2, Server, BarChart3, Brain, MessageSquare, FileText
 } from 'lucide-vue-next'
 import LangSwitcher from '../../components/LangSwitcher.vue'
 
@@ -125,6 +125,7 @@ const menuItems = [
   { path: '/admin/providers', labelKey: 'admin.menu.providers', icon: Server },
   { path: '/admin/tokens', labelKey: 'admin.menu.tokens', icon: BarChart3 },
   { path: '/admin/memory', labelKey: 'admin.menu.memory', icon: Brain },
+  { path: '/admin/system-prompts', labelKey: 'admin.menu.systemPrompts', icon: FileText },
   { path: '/admin/proxy-debug', labelKey: 'admin.menu.chatDebug', icon: MessageSquare }
 ]
 

@@ -143,6 +143,7 @@ export default {
       providers: 'Providers',
       tokens: 'Tokens',
       memory: 'Memory',
+      systemPrompts: 'Prompts',
       chatDebug: 'Chat Debug'
     }
   },

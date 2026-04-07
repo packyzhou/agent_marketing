@@ -11,6 +11,7 @@ from .api.proxy.chat import router as proxy_router
 from .core.database import engine, Base, SessionLocal
 from .models.user import User, UserRole, Role, RoleType
 from .models.provider import Provider
+from .models.system_prompt import SystemPrompt  # noqa: F401 – registers table with Base
 
 Base.metadata.create_all(bind=engine)
 
@@ -113,6 +114,16 @@ if not engine.url.drivername.startswith("sqlite"):
                 MODIFY COLUMN role VARCHAR(50) NOT NULL DEFAULT 'USER'
             """))
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_system_prompt (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                prompt_type VARCHAR(100) NOT NULL UNIQUE,
+                content LONGTEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_prompt_type (prompt_type)
+            )
+        """))
+        conn.execute(text("""
             DELETE p1 FROM tb_provider_key p1
             INNER JOIN tb_provider_key p2
             ON p1.app_key = p2.app_key AND p1.id < p2.id
@@ -138,6 +149,15 @@ else:
                 owner_user_id BIGINT NOT NULL,
                 member_id BIGINT NOT NULL,
                 app_key VARCHAR(64) NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_system_prompt (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prompt_type VARCHAR(100) NOT NULL UNIQUE,
+                content TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )

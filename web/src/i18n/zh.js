@@ -143,6 +143,7 @@ export default {
       providers: '供应商管理',
       tokens: 'Token统计',
       memory: '记忆查看',
+      systemPrompts: '提示词管理',
       chatDebug: '对话调试'
     }
   },

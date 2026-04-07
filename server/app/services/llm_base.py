@@ -1,7 +1,30 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, AsyncIterator
-import httpx
-import json
+
+from openai import AsyncOpenAI
+import openai
+
+
+# OpenAI SDK chat.completions.create() accepted keyword params
+_OPENAI_KNOWN_PARAMS = frozenset({
+    "temperature", "max_tokens", "max_completion_tokens", "top_p",
+    "frequency_penalty", "presence_penalty", "stop", "n", "logit_bias",
+    "user", "response_format", "seed", "tools", "tool_choice",
+    "parallel_tool_calls", "logprobs", "top_logprobs", "timeout", "metadata",
+})
+
+# Keys managed explicitly by chat_completion(); strip from extra_body
+_RESERVED_KEYS = frozenset({"model", "messages", "stream", "stream_options", "app_key"})
+
+
+def _split_extra_body(extra_body: dict | None) -> tuple[dict, dict]:
+    """Split extra_body into (known_sdk_kwargs, vendor_extra_body)."""
+    extras = {k: v for k, v in (extra_body or {}).items() if k not in _RESERVED_KEYS}
+    known: dict = {}
+    vendor: dict = {}
+    for k, v in extras.items():
+        (known if k in _OPENAI_KNOWN_PARAMS else vendor)[k] = v
+    return known, vendor
 
 
 class BaseLLM(ABC):
@@ -24,7 +47,15 @@ class BaseLLM(ABC):
         pass
 
 
-class QwenLLM(BaseLLM):
+class OpenAICompatibleLLM(BaseLLM):
+    """OpenAI-SDK-based implementation for any OpenAI-compatible endpoint."""
+
+    def _create_client(self) -> AsyncOpenAI:
+        return AsyncOpenAI(
+            api_key=self.api_key or "none",
+            base_url=self.base_url,
+        )
+
     async def chat_completion(
         self,
         messages: list,
@@ -32,72 +63,47 @@ class QwenLLM(BaseLLM):
         stream: bool = False,
         extra_body: Dict[str, Any] | None = None,
     ):
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = dict(extra_body or {})
-        payload["model"] = model
-        payload["messages"] = messages
-        payload["stream"] = stream
-        if stream:
-            stream_options = payload.get("stream_options", {})
-            if not isinstance(stream_options, dict):
-                stream_options = {}
-            stream_options["include_usage"] = True
-            payload["stream_options"] = stream_options
+        client = self._create_client()
+        known_kwargs, vendor_extra = _split_extra_body(extra_body)
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            if stream:
-                try:
-                    async with client.stream(
-                        "POST",
-                        f"{self.base_url}/chat/completions",
-                        headers=headers,
-                        json=payload,
-                    ) as response:
-                        response.raise_for_status()
-                        async for line in response.aiter_lines():
-                            if line.startswith("data: "):
-                                data = line[6:].strip()
-                                if data == "[DONE]" or not data:
-                                    continue
-                                try:
-                                    yield json.loads(data)
-                                except json.JSONDecodeError:
-                                    continue
-                except httpx.HTTPStatusError as e:
-                    status_code = (
-                        e.response.status_code if e.response is not None else None
-                    )
-                    if status_code not in [400, 422]:
-                        raise
-                    fallback_payload = {
-                        **payload,
-                        "stream": True,
-                    }
-                    async with client.stream(
-                        "POST",
-                        f"{self.base_url}/chat/completions",
-                        headers=headers,
-                        json=fallback_payload,
-                    ) as response:
-                        response.raise_for_status()
-                        async for line in response.aiter_lines():
-                            if line.startswith("data: "):
-                                data = line[6:].strip()
-                                if data == "[DONE]" or not data:
-                                    continue
-                                try:
-                                    yield json.loads(data)
-                                except json.JSONDecodeError:
-                                    continue
-            else:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions", headers=headers, json=payload
+        if stream:
+            stream_options = {"include_usage": True}
+            # Try with stream_options first; fall back if the endpoint rejects it
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    stream=True,
+                    stream_options=stream_options,
+                    extra_body=vendor_extra or None,
+                    **known_kwargs,
                 )
-                response.raise_for_status()
-                yield response.json()
+                async for chunk in response:
+                    yield chunk.model_dump()
+            except openai.BadRequestError:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    stream=True,
+                    extra_body=vendor_extra or None,
+                    **known_kwargs,
+                )
+                async for chunk in response:
+                    yield chunk.model_dump()
+        else:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=False,
+                extra_body=vendor_extra or None,
+                **known_kwargs,
+            )
+            yield response.model_dump()
 
     def count_tokens(self, text: str) -> int:
         return len(text) // 2
+
+
+# Backward-compatible aliases
+class QwenLLM(OpenAICompatibleLLM):
+    pass

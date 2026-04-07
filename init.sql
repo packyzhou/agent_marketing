@@ -40,15 +40,14 @@ CREATE TABLE IF NOT EXISTS tb_group (
 
 -- 租户表
 CREATE TABLE IF NOT EXISTS tb_tenant (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
-    app_key VARCHAR(64) UNIQUE NOT NULL COMMENT '应用密钥',
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+    app_key VARCHAR(64) PRIMARY KEY COMMENT '应用密钥',
     app_secret VARCHAR(128) NOT NULL COMMENT '应用秘钥',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     tenant_name VARCHAR(100) COMMENT '租户名称',
     group_binding_json TEXT COMMENT '绑定信息JSON',
     status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'ACTIVE' COMMENT '状态',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    INDEX idx_app_key (app_key),
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户表';
 
@@ -139,6 +138,16 @@ CREATE TABLE IF NOT EXISTS tb_token_conversation (
     INDEX idx_round_number (round_number),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话Token明细表';
+
+-- 系统提示词表
+CREATE TABLE IF NOT EXISTS tb_system_prompt (
+    id INT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    prompt_type VARCHAR(100) NOT NULL UNIQUE COMMENT '提示词类型标识',
+    content LONGTEXT NOT NULL COMMENT '提示词内容',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_prompt_type (prompt_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统提示词表';
 
 -- 记忆元数据表
 CREATE TABLE IF NOT EXISTS tb_memory_meta (

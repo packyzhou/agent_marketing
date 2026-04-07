@@ -5,6 +5,7 @@ import json
 import secrets
 from ...core.database import get_db
 from ...core.deps import get_current_admin_user
+from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.tenant import Tenant, TenantStatus
 from pydantic import BaseModel
@@ -88,7 +89,7 @@ async def list_tenants(
                 user_id=str(tenant.user_id),
                 username=user.username,
                 bound_users=tenant.group_binding_json,
-                created_at=tenant.created_at.isoformat()
+                created_at=dt_to_local_str(tenant.created_at)
             )
             for index, (tenant, user) in enumerate(rows)
         ]
@@ -125,7 +126,7 @@ async def create_tenant(
         user_id=str(tenant.user_id),
         username=current_user.username,
         bound_users=tenant.group_binding_json,
-        created_at=tenant.created_at.isoformat(),
+        created_at=dt_to_local_str(tenant.created_at),
     )
 
 
@@ -161,7 +162,7 @@ async def get_tenant_detail(
         "user_id": str(tenant.user_id),
         "username": owner.username if owner else "",
         "bound_users": bound_users_list,
-        "created_at": tenant.created_at.isoformat()
+        "created_at": dt_to_local_str(tenant.created_at)
     }
 
 
@@ -199,7 +200,7 @@ async def update_tenant(
         user_id=str(tenant.user_id),
         username=owner.username if owner else "",
         bound_users=tenant.group_binding_json,
-        created_at=tenant.created_at.isoformat(),
+        created_at=dt_to_local_str(tenant.created_at),
     )
 
 

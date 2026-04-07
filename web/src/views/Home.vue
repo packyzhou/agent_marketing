@@ -13,7 +13,7 @@
           </div>
         </router-link>
         <div class="hidden md:flex items-center space-x-10 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          <a href="#agents" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.marketplace') }}</a>
+          <router-link to="/market" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.marketplace') }}</router-link>
           <router-link to="/docs" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.docs') }}</router-link>
           <router-link to="/about" class="hover:text-slate-950 transition-colors py-2">{{ $t('nav.about') }}</router-link>
           <LangSwitcher />
@@ -114,9 +114,16 @@
                 <span class="text-[10px] font-bold text-slate-300 ml-1">/HR</span>
               </div>
             </div>
-            <button class="h-14 w-14 bg-slate-950 text-white rounded-2xl flex items-center justify-center hover:bg-cyan-500 hover:shadow-lg hover:shadow-cyan-200 transition-all duration-300 group/btn">
-              <ChevronRight class="w-6 h-6 group-hover/btn:translate-x-0.5 transition-transform" />
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                @click="openPayment(agent)"
+                class="h-10 px-5 bg-cyan-500 text-white text-xs font-bold rounded-xl hover:bg-cyan-600 hover:shadow-lg hover:shadow-cyan-200 transition-all duration-300">
+                购买
+              </button>
+              <button class="h-10 w-10 bg-slate-950 text-white rounded-xl flex items-center justify-center hover:bg-cyan-500 hover:shadow-lg hover:shadow-cyan-200 transition-all duration-300 group/btn">
+                <ChevronRight class="w-5 h-5 group-hover/btn:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -153,6 +160,8 @@
       </div>
     </footer>
   </div>
+
+  <PaymentModal v-model:visible="paymentVisible" :agent="paymentAgent" />
 </template>
 
 <script setup>
@@ -167,6 +176,15 @@ import {
   Clock
 } from 'lucide-vue-next'
 import LangSwitcher from '../components/LangSwitcher.vue'
+import PaymentModal from '../components/PaymentModal.vue'
+
+const paymentVisible = ref(false)
+const paymentAgent   = ref(null)
+
+function openPayment(agent) {
+  paymentAgent.value   = agent
+  paymentVisible.value = true
+}
 
 const agents = ref([
   {
