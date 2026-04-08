@@ -6,12 +6,29 @@ import openai
 
 
 # OpenAI SDK chat.completions.create() accepted keyword params
-_OPENAI_KNOWN_PARAMS = frozenset({
-    "temperature", "max_tokens", "max_completion_tokens", "top_p",
-    "frequency_penalty", "presence_penalty", "stop", "n", "logit_bias",
-    "user", "response_format", "seed", "tools", "tool_choice",
-    "parallel_tool_calls", "logprobs", "top_logprobs", "timeout", "metadata",
-})
+_OPENAI_KNOWN_PARAMS = frozenset(
+    {
+        "temperature",
+        "max_tokens",
+        "max_completion_tokens",
+        "top_p",
+        "frequency_penalty",
+        "presence_penalty",
+        "stop",
+        "n",
+        "logit_bias",
+        "user",
+        "response_format",
+        "seed",
+        "tools",
+        "tool_choice",
+        "parallel_tool_calls",
+        "logprobs",
+        "top_logprobs",
+        "timeout",
+        "metadata",
+    }
+)
 
 # Keys managed explicitly by chat_completion(); strip from extra_body
 _RESERVED_KEYS = frozenset({"model", "messages", "stream", "stream_options", "app_key"})
