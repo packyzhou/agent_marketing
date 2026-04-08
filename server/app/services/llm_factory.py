@@ -118,17 +118,17 @@ class OllamaLLM(BaseLLM):
         return len(text) // 2
 
 
-def get_llm_client(provider_name: str, api_key: str, base_url: str) -> BaseLLM:
-    name = (provider_name or "").lower()
+def get_llm_client(provider_code: str, api_key: str, base_url: str) -> BaseLLM:
+    code = (provider_code or "").lower()
     print(
-        f"----llm client created | name:{name} | api_key:{api_key} | base_url:{base_url}----"
+        f"----llm client created | code:{code} | api_key:{api_key} | base_url:{base_url}----"
     )
-    if "ollama" in name:
+    if "ollama" in code:
         return OllamaLLM(api_key, base_url)
-    if "千问" in provider_name or "qwen" in name:
+    if "qwen" in code:
         return QwenLLM(api_key, base_url)
-    if "豆包" in provider_name or "doubao" in name or "ark" in name:
+    if "doubao" in code or "ark" in code:
         return DoubaoLLM(api_key, base_url)
-    if "deepseek" in name:
+    if "deepseek" in code:
         return DeepseekLLM(api_key, base_url)
     return OpenAICompatibleLLM(api_key, base_url)
