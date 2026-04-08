@@ -1,9 +1,9 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
+    <div class="admin-page-header">
       <div>
-        <h2 class="text-xl font-bold text-slate-900">提示词管理</h2>
-        <p class="text-sm text-slate-400 mt-0.5">管理系统级 AI 提示词，通过 prompt_type 在配置中引用</p>
+        <h2>提示词管理</h2>
+        <p>管理系统级 AI 提示词，通过 prompt_type 在配置中引用</p>
       </div>
       <button @click="openCreate"
         class="flex items-center space-x-2 px-4 py-2.5 bg-slate-950 text-white text-sm font-bold rounded-xl hover:bg-cyan-500 transition-all duration-300">

@@ -1,9 +1,14 @@
 <template>
   <div>
-    <h2 class="text-2xl font-bold mb-4">供应商管理</h2>
-    <el-button type="primary" @click="openDialog()" class="mb-4">添加供应商</el-button>
+    <div class="admin-page-header">
+      <div>
+        <h2>供应商管理</h2>
+        <p>维护可接入的大模型 / API 服务供应商</p>
+      </div>
+      <el-button type="primary" @click="openDialog()">添加供应商</el-button>
+    </div>
 
-    <el-table :data="providers" border stripe>
+    <el-table :data="providers" stripe>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" label="名称" width="150" />
       <el-table-column prop="code" label="代码" width="120" />

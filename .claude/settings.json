@@ -3,7 +3,8 @@
     "allow": [
       "Bash(powershell -command ':*)",
       "Bash(/c/ProgramData/anaconda3/python.exe -c \"import uvicorn; print\\(uvicorn.__version__\\)\")",
-      "Bash(grep -E \"\\\\.vue$\")"
+      "Bash(grep -E \"\\\\.vue$\")",
+      "Bash(npx vite:*)"
     ]
   }
 }

@@ -1,15 +1,18 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-bold">用户管理</h2>
-      <el-select v-model="roleFilter" placeholder="筛选角色" clearable @change="loadUsers" style="width: 150px">
+    <div class="admin-page-header">
+      <div>
+        <h2>用户管理</h2>
+        <p>查看与维护平台用户、角色及关联租户信息</p>
+      </div>
+      <el-select v-model="roleFilter" placeholder="筛选角色" clearable @change="loadUsers" style="width: 160px">
         <el-option label="全部" value="" />
         <el-option label="管理员" value="ADMIN" />
         <el-option label="普通用户" value="USER" />
       </el-select>
     </div>
 
-    <el-table :data="users" border stripe>
+    <el-table :data="users" stripe>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" width="120" />
       <el-table-column prop="email" label="邮箱" width="200" />

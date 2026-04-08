@@ -1,13 +1,16 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-bold">分组管理</h2>
+    <div class="admin-page-header">
+      <div>
+        <h2>分组管理</h2>
+        <p>查看与管理团队分组及其成员归属</p>
+      </div>
       <div class="flex gap-2">
         <el-input
           v-model="keyword"
           placeholder="搜索分组名称 / 组长账号 / 手机号"
           clearable
-          style="width: 280px"
+          style="width: 300px"
           @keyup.enter="handleSearch"
           @clear="handleSearch"
         />
@@ -15,7 +18,7 @@
       </div>
     </div>
 
-    <el-table :data="groups" border stripe v-loading="groupLoading">
+    <el-table :data="groups" stripe v-loading="groupLoading">
       <el-table-column prop="group_name" label="分组名称" min-width="220" />
       <el-table-column prop="owner_username" label="组长账号" width="160" />
       <el-table-column prop="owner_phone" label="组长手机号" width="160" />
@@ -42,11 +45,11 @@
       :title="selectedGroup ? `${selectedGroup.group_name} - 成员管理` : '成员管理'"
       width="1320px"
     >
-      <div v-if="selectedGroup" class="mb-4 text-sm text-gray-500">
-        组长：{{ selectedGroup.owner_username }} / {{ selectedGroup.owner_phone || '-' }}，当前成员 {{ membersTotal }} 人
+      <div v-if="selectedGroup" class="mb-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+        组长：{{ selectedGroup.owner_username }} / {{ selectedGroup.owner_phone || '-' }} · 当前成员 {{ membersTotal }} 人
       </div>
 
-      <el-table :data="members" border stripe v-loading="memberLoading">
+      <el-table :data="members" stripe v-loading="memberLoading">
         <el-table-column prop="member_id" label="成员ID" width="180" />
         <el-table-column prop="username" label="用户账号" width="150" />
         <el-table-column prop="member_name" label="姓名" width="140" />

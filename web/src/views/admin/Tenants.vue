@@ -1,9 +1,12 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-bold">租户管理</h2>
+    <div class="admin-page-header">
+      <div>
+        <h2>租户管理</h2>
+        <p>管理平台租户、AppKey 及供应商 API 配置</p>
+      </div>
       <div class="flex gap-2">
-        <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 150px">
+        <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 160px">
           <el-option label="全部" value="" />
           <el-option label="启用" value="active" />
           <el-option label="禁用" value="inactive" />
@@ -12,7 +15,7 @@
       </div>
     </div>
 
-    <el-table :data="tenants" border stripe>
+    <el-table :data="tenants" stripe>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column label="AppKey" min-width="240">
         <template #default="{ row }">
@@ -88,9 +91,9 @@
           <el-descriptions-item label="创建时间">{{ selectedTenant.created_at }}</el-descriptions-item>
         </el-descriptions>
 
-        <div class="mt-4" v-if="selectedTenant.bound_users && selectedTenant.bound_users.length > 0">
-          <h3 class="font-bold mb-2">绑定用户</h3>
-          <el-table :data="selectedTenant.bound_users" border size="small">
+        <div class="mt-6" v-if="selectedTenant.bound_users && selectedTenant.bound_users.length > 0">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">绑定用户</h3>
+          <el-table :data="selectedTenant.bound_users" size="small">
             <el-table-column prop="id" label="用户ID" min-width="140" />
             <el-table-column prop="name" label="姓名" min-width="120" />
             <el-table-column prop="phone" label="手机号" />
@@ -110,7 +113,7 @@
         >
           添加API配置
         </el-button>
-        <el-table :data="providerKeys" border size="small">
+        <el-table :data="providerKeys" size="small">
           <el-table-column prop="provider_name" label="供应商" min-width="120" />
           <el-table-column prop="model_name" label="模型" min-width="150" />
           <el-table-column prop="api_key" label="API Key" min-width="240">
