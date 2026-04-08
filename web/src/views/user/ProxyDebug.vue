@@ -8,7 +8,13 @@
           <el-input v-model="form.apiUrl" placeholder="例如: http://127.0.0.1:8000/chat/completions" />
         </el-form-item>
         <el-form-item label="AppKey">
-          <el-select v-model="form.appKey" placeholder="请选择AppKey" filterable style="width: 100%">
+          <el-select
+            v-model="form.appKey"
+            placeholder="请选择AppKey"
+            filterable
+            style="width: 100%"
+            @change="handleAppKeyChange"
+          >
             <el-option
               v-for="tenant in tenantOptions"
               :key="tenant.app_key"
@@ -18,7 +24,10 @@
           </el-select>
         </el-form-item>
         <el-form-item label="模型(可选)">
-          <el-input v-model="form.model" placeholder="不填则使用租户配置模型" />
+          <el-input
+            v-model="form.model"
+            :placeholder="modelLoading ? '正在查询租户配置模型…' : '不填则使用租户配置模型'"
+          />
         </el-form-item>
         <el-form-item label="问题输入">
           <el-input v-model="form.question" type="textarea" :rows="4" placeholder="请输入问题后点击发送" />
@@ -79,6 +88,7 @@ const aiResponse = ref('')
 const requestInfo = ref(null)
 const errorInfo = ref(null)
 const tenantOptions = ref([])
+const modelLoading = ref(false)
 let abortController = null
 
 marked.setOptions({
@@ -256,10 +266,32 @@ const loadTenantOptions = async () => {
     tenantOptions.value = await api.get('/user/tenants')
     if (!form.value.appKey && tenantOptions.value.length > 0) {
       form.value.appKey = tenantOptions.value[0].app_key
+      await loadAppKeyModel(form.value.appKey)
     }
   } catch (error) {
     ElMessage.error('加载AppKey列表失败')
   }
+}
+
+const loadAppKeyModel = async (appKey) => {
+  if (!appKey) {
+    form.value.model = ''
+    return
+  }
+  modelLoading.value = true
+  try {
+    const keys = await api.get(`/user/tenants/${appKey}/provider-keys`)
+    const modelName = Array.isArray(keys) && keys.length > 0 ? (keys[0].model_name || '') : ''
+    form.value.model = modelName
+  } catch (error) {
+    form.value.model = ''
+  } finally {
+    modelLoading.value = false
+  }
+}
+
+const handleAppKeyChange = (appKey) => {
+  loadAppKeyModel(appKey)
 }
 
 onMounted(() => {

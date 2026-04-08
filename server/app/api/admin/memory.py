@@ -15,7 +15,8 @@ router = APIRouter()
 class MemoryListResponse(BaseModel):
     app_key: str
     tenant_name: Optional[str]
-    rounds_count: int
+    total_duration_seconds: int
+    memory_size: int
     last_processed_at: Optional[str]
     has_kv_file: bool
     has_digest_file: bool
@@ -25,8 +26,24 @@ class MemoryResponse(BaseModel):
     tenant_name: Optional[str]
     kv_content: Optional[str]
     digest_content: Optional[str]
-    rounds_count: int
+    total_duration_seconds: int
+    memory_size: int
     last_processed_at: Optional[str]
+
+
+def _read_text_file(path: Optional[str]) -> str:
+    if not path or not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+def _calc_memory_size(kv_content: str, digest_content: str) -> int:
+    """记忆库容量 = 事实记忆层 + 行为摘要层 的字符数"""
+    return len(kv_content or "") + len(digest_content or "")
 
 @router.get("/memory/{app_key}", response_model=MemoryResponse)
 async def get_memory(
@@ -40,23 +57,16 @@ async def get_memory(
         raise HTTPException(status_code=404, detail="Memory not found")
     tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
 
-    kv_content = None
-    digest_content = None
-
-    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
-        with open(memory_meta.kv_file_path, 'r', encoding='utf-8') as f:
-            kv_content = f.read()
-
-    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
-        with open(memory_meta.digest_file_path, 'r', encoding='utf-8') as f:
-            digest_content = f.read()
+    kv_content = _read_text_file(memory_meta.kv_file_path)
+    digest_content = _read_text_file(memory_meta.digest_file_path)
 
     return MemoryResponse(
         app_key=app_key,
         tenant_name=tenant.tenant_name if tenant else None,
-        kv_content=kv_content,
-        digest_content=digest_content,
-        rounds_count=memory_meta.last_processed_round or 0,
+        kv_content=kv_content or None,
+        digest_content=digest_content or None,
+        total_duration_seconds=memory_meta.total_duration_seconds or 0,
+        memory_size=_calc_memory_size(kv_content, digest_content),
         last_processed_at=dt_to_local_str(memory_meta.last_updated)
     )
 
@@ -75,17 +85,22 @@ async def list_all_memory(
         tenants = db.query(Tenant).filter(Tenant.app_key.in_(app_keys)).all()
         tenant_map = {tenant.app_key: tenant for tenant in tenants}
 
-    return [
-        MemoryListResponse(
-            app_key=mem.app_key,
-            tenant_name=tenant_map[mem.app_key].tenant_name if mem.app_key in tenant_map else None,
-            rounds_count=mem.last_processed_round or 0,
-            last_processed_at=dt_to_local_str(mem.last_updated),
-            has_kv_file=bool(mem.kv_file_path and os.path.exists(mem.kv_file_path)),
-            has_digest_file=bool(mem.digest_file_path and os.path.exists(mem.digest_file_path))
+    result = []
+    for mem in memories:
+        kv_content = _read_text_file(mem.kv_file_path)
+        digest_content = _read_text_file(mem.digest_file_path)
+        result.append(
+            MemoryListResponse(
+                app_key=mem.app_key,
+                tenant_name=tenant_map[mem.app_key].tenant_name if mem.app_key in tenant_map else None,
+                total_duration_seconds=mem.total_duration_seconds or 0,
+                memory_size=_calc_memory_size(kv_content, digest_content),
+                last_processed_at=dt_to_local_str(mem.last_updated),
+                has_kv_file=bool(mem.kv_file_path and os.path.exists(mem.kv_file_path)),
+                has_digest_file=bool(mem.digest_file_path and os.path.exists(mem.digest_file_path))
+            )
         )
-        for mem in memories
-    ]
+    return result
 
 @router.post("/memory/{app_key}/clear")
 async def clear_memory_files(
@@ -111,6 +126,7 @@ async def clear_memory_files(
         cleared_digest = True
 
     memory_meta.last_processed_round = 0
+    memory_meta.total_duration_seconds = 0
     db.commit()
 
     return {

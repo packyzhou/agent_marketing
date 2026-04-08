@@ -140,6 +140,18 @@ async def _process_memory_with_ai(app_key: str) -> None:
             for c in convs
         ]
 
+        # 计算本批次对话覆盖的时长（首条到末条的时间差），用于累计对话总时长
+        batch_duration_seconds = 0
+        try:
+            timestamps = [c.created_at for c in convs if c.created_at]
+            if len(timestamps) >= 2:
+                batch_duration_seconds = max(
+                    0,
+                    int((max(timestamps) - min(timestamps)).total_seconds()),
+                )
+        except Exception:
+            batch_duration_seconds = 0
+
         # 读取完毕后立即删除本次对话记录，避免重复处理
         conv_ids = [c.id for c in convs]
         db.query(Conversation).filter(Conversation.id.in_(conv_ids)).delete(synchronize_session=False)
@@ -153,8 +165,14 @@ async def _process_memory_with_ai(app_key: str) -> None:
                 last_processed_round=0,
                 kv_file_path=str(get_kv_file(app_key)),
                 digest_file_path=str(get_digest_file(app_key)),
+                total_duration_seconds=0,
             )
             db.add(meta)
+            db.commit()
+
+        # 累加对话总时长
+        if batch_duration_seconds > 0:
+            meta.total_duration_seconds = (meta.total_duration_seconds or 0) + batch_duration_seconds
             db.commit()
 
         kv_path = Path(meta.kv_file_path) if meta.kv_file_path else get_kv_file(app_key)

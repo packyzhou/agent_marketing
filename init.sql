@@ -40,11 +40,13 @@ CREATE TABLE IF NOT EXISTS tb_group (
 
 -- 租户表
 CREATE TABLE IF NOT EXISTS tb_tenant (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
     app_key VARCHAR(64) PRIMARY KEY COMMENT '应用密钥',
     app_secret VARCHAR(128) NOT NULL COMMENT '应用秘钥',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     tenant_name VARCHAR(100) COMMENT '租户名称',
+    contact_name VARCHAR(100) COMMENT '联系人姓名',
+    contact_phone VARCHAR(20) COMMENT '联系人电话',
     group_binding_json TEXT COMMENT '绑定信息JSON',
     status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'ACTIVE' COMMENT '状态',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -53,7 +55,7 @@ CREATE TABLE IF NOT EXISTS tb_tenant (
 
 -- 供应商表
 CREATE TABLE IF NOT EXISTS tb_provider (
-    id BIGINT PRIMARY KEY COMMENT '供应商ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '供应商ID',
     name VARCHAR(100) NOT NULL COMMENT '供应商名称',
     code VARCHAR(50) NOT NULL UNIQUE COMMENT '供应商代码',
     base_url VARCHAR(255) NOT NULL COMMENT '基础URL',
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS tb_provider (
 
 -- 供应商密钥表
 CREATE TABLE IF NOT EXISTS tb_provider_key (
-    id BIGINT PRIMARY KEY COMMENT '密钥ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '密钥ID',
     app_key VARCHAR(64) NOT NULL COMMENT '租户AppKey',
     provider_id BIGINT NOT NULL COMMENT '供应商ID',
     api_key VARCHAR(255) NOT NULL COMMENT 'API密钥',
@@ -102,7 +104,7 @@ CREATE TABLE IF NOT EXISTS tb_token_summary (
 
 -- Token每日统计表
 CREATE TABLE IF NOT EXISTS tb_token_daily (
-    id BIGINT PRIMARY KEY COMMENT '记录ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
     app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     date DATE NOT NULL COMMENT '日期',
     token_count BIGINT DEFAULT 0 COMMENT 'Token数量',
@@ -114,7 +116,7 @@ CREATE TABLE IF NOT EXISTS tb_token_daily (
 
 -- 对话记录表
 CREATE TABLE IF NOT EXISTS tb_conversation (
-    id BIGINT PRIMARY KEY COMMENT '记录ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
     app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     round_number INT NOT NULL COMMENT '对话轮次',
     user_message TEXT NOT NULL COMMENT '用户消息',
@@ -125,7 +127,7 @@ CREATE TABLE IF NOT EXISTS tb_conversation (
 
 -- 对话Token明细表
 CREATE TABLE IF NOT EXISTS tb_token_conversation (
-    id BIGINT PRIMARY KEY COMMENT '记录ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
     app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     round_number INT NOT NULL COMMENT '对话轮次',
     provider_name VARCHAR(128) COMMENT '供应商名称',
@@ -141,7 +143,7 @@ CREATE TABLE IF NOT EXISTS tb_token_conversation (
 
 -- 系统提示词表
 CREATE TABLE IF NOT EXISTS tb_system_prompt (
-    id INT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
     prompt_type VARCHAR(100) NOT NULL UNIQUE COMMENT '提示词类型标识',
     content LONGTEXT NOT NULL COMMENT '提示词内容',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -155,12 +157,13 @@ CREATE TABLE IF NOT EXISTS tb_memory_meta (
     last_processed_round INT DEFAULT 0 COMMENT '最后处理轮次',
     kv_file_path VARCHAR(255) COMMENT 'KV存储文件路径',
     digest_file_path VARCHAR(255) COMMENT '摘要文件路径',
+    total_duration_seconds BIGINT DEFAULT 0 COMMENT '对话总时长(秒)',
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='记忆元数据表';
 
 -- 初始管理员 (密码: admin123)
 INSERT INTO tb_user (id, username, password_hash, real_name, role) VALUES
-(1000000000000000001, 'admin', '$2b$12$7PClnwmUNx.zogr/0ZUTSerDKm2V9TWdsZ13XImNaA/A/TSkkWMCC', '系统管理员', 'ADMIN');
+(1000000000000001, 'admin', '$2b$12$7PClnwmUNx.zogr/0ZUTSerDKm2V9TWdsZ13XImNaA/A/TSkkWMCC', '系统管理员', 'ADMIN');
 
 -- 初始角色
 INSERT INTO tb_role (code, name, role_type, description, is_system) VALUES

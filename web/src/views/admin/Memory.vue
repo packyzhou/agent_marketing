@@ -9,7 +9,16 @@
 
     <el-table :data="memories" stripe>
       <el-table-column prop="app_key" label="AppKey" width="200" />
-      <el-table-column prop="rounds_count" label="对话轮数" width="100" />
+      <el-table-column label="对话总时长" width="140">
+        <template #default="{ row }">
+          <span class="font-mono text-xs">{{ formatDuration(row.total_duration_seconds) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="记忆库容量" width="140">
+        <template #default="{ row }">
+          <span class="font-mono text-xs">{{ formatMemorySize(row.memory_size) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="last_processed_at" label="最后处理时间" width="180" />
       <el-table-column label="文件状态" width="150">
         <template #default="{ row }">
@@ -48,7 +57,8 @@
           </el-tab-pane>
         </el-tabs>
         <div class="mt-4 flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          <span>对话轮数：<span class="text-slate-700 font-mono">{{ selectedMemory.rounds_count }}</span></span>
+          <span>对话总时长：<span class="text-slate-700 font-mono">{{ formatDuration(selectedMemory.total_duration_seconds) }}</span></span>
+          <span>记忆库容量：<span class="text-slate-700 font-mono">{{ formatMemorySize(selectedMemory.memory_size) }}</span></span>
           <span>最后处理：<span class="text-slate-700 font-mono">{{ selectedMemory.last_processed_at || '未处理' }}</span></span>
         </div>
       </div>
@@ -65,6 +75,26 @@ const memories = ref([])
 const detailVisible = ref(false)
 const selectedMemory = ref(null)
 const activeTab = ref('kv')
+
+const formatDuration = (seconds) => {
+  const total = Number(seconds) || 0
+  if (total <= 0) return '0 秒'
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  const parts = []
+  if (h > 0) parts.push(`${h} 小时`)
+  if (m > 0) parts.push(`${m} 分`)
+  if (s > 0 || parts.length === 0) parts.push(`${s} 秒`)
+  return parts.join(' ')
+}
+
+const formatMemorySize = (size) => {
+  const n = Number(size) || 0
+  if (n < 1024) return `${n} 字`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(2)} K 字`
+  return `${(n / (1024 * 1024)).toFixed(2)} M 字`
+}
 
 const loadMemories = async () => {
   try {
@@ -100,7 +130,8 @@ const clearMemory = async (memory) => {
     if (selectedMemory.value && selectedMemory.value.app_key === memory.app_key) {
       selectedMemory.value.kv_content = ''
       selectedMemory.value.digest_content = ''
-      selectedMemory.value.rounds_count = 0
+      selectedMemory.value.total_duration_seconds = 0
+      selectedMemory.value.memory_size = 0
     }
     loadMemories()
   } catch (error) {

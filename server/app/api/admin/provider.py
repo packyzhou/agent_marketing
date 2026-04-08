@@ -121,7 +121,7 @@ async def create_provider(
     payload["name"] = payload["name"].strip()
     payload["code"] = payload["code"].strip()
     payload["base_url"] = payload["base_url"].strip()
-    payload["id"] = generate_snowflake_id()
+    # payload["id"] = generate_snowflake_id()
     provider = Provider(**payload)
     db.add(provider)
     db.commit()
@@ -213,11 +213,7 @@ async def list_tenant_provider_keys(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     records = (
@@ -248,11 +244,7 @@ async def create_tenant_provider_key(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     if str(getattr(tenant.status, "value", tenant.status)).upper() != "ACTIVE":
@@ -291,7 +283,7 @@ async def create_tenant_provider_key(
         )
 
     key = ProviderKey(
-        id=generate_snowflake_id(),
+        # id=generate_snowflake_id(),
         app_key=app_key,
         provider_id=key_data.provider_id,
         api_key=key_data.api_key.strip(),
@@ -322,11 +314,7 @@ async def delete_tenant_provider_key(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     key = (

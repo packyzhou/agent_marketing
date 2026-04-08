@@ -17,6 +17,8 @@ class TenantResponse(BaseModel):
     app_key: str
     app_secret: str
     tenant_name: Optional[str]
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
     status: str
     user_id: str
     username: str
@@ -34,11 +36,15 @@ class TenantPageResponse(BaseModel):
 
 class TenantCreate(BaseModel):
     tenant_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
     status: Optional[str] = "ACTIVE"
 
 
 class TenantUpdate(BaseModel):
     tenant_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -68,10 +74,8 @@ async def list_tenants(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
-    """List current user's tenants with pagination"""
-    query = db.query(Tenant, User).join(User, Tenant.user_id == User.id).filter(
-        Tenant.user_id == current_user.id
-    )
+    """List all tenants with pagination (admin sees every tenant)"""
+    query = db.query(Tenant, User).join(User, Tenant.user_id == User.id)
     if status:
         query = query.filter(Tenant.status == str(status).upper())
 
@@ -85,6 +89,8 @@ async def list_tenants(
                 app_key=tenant.app_key,
                 app_secret=tenant.app_secret[:10] + "...",
                 tenant_name=tenant.tenant_name,
+                contact_name=tenant.contact_name,
+                contact_phone=tenant.contact_phone,
                 status=tenant.status.value,
                 user_id=str(tenant.user_id),
                 username=user.username,
@@ -112,6 +118,8 @@ async def create_tenant(
         app_secret=app_secret,
         user_id=current_user.id,
         tenant_name=(tenant_data.tenant_name or "").strip() or None,
+        contact_name=(tenant_data.contact_name or "").strip() or None,
+        contact_phone=(tenant_data.contact_phone or "").strip() or None,
         status=status,
     )
     db.add(tenant)
@@ -122,6 +130,8 @@ async def create_tenant(
         app_key=tenant.app_key,
         app_secret=tenant.app_secret[:10] + "...",
         tenant_name=tenant.tenant_name,
+        contact_name=tenant.contact_name,
+        contact_phone=tenant.contact_phone,
         status=tenant.status.value,
         user_id=str(tenant.user_id),
         username=current_user.username,
@@ -137,11 +147,7 @@ async def get_tenant_detail(
     db: Session = Depends(get_db)
 ):
     """Get detailed tenant information including bound users"""
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     owner = db.query(User).filter(User.id == tenant.user_id).first()
@@ -158,6 +164,8 @@ async def get_tenant_detail(
         "app_key": tenant.app_key,
         "app_secret": tenant.app_secret,
         "tenant_name": tenant.tenant_name,
+        "contact_name": tenant.contact_name,
+        "contact_phone": tenant.contact_phone,
         "status": tenant.status.value,
         "user_id": str(tenant.user_id),
         "username": owner.username if owner else "",
@@ -173,16 +181,16 @@ async def update_tenant(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     if tenant_data.tenant_name is not None:
         tenant.tenant_name = (tenant_data.tenant_name or "").strip() or None
+    if tenant_data.contact_name is not None:
+        tenant.contact_name = (tenant_data.contact_name or "").strip() or None
+    if tenant_data.contact_phone is not None:
+        tenant.contact_phone = (tenant_data.contact_phone or "").strip() or None
 
     normalized_status = _normalize_status(tenant_data.status)
     if normalized_status:
@@ -196,6 +204,8 @@ async def update_tenant(
         app_key=tenant.app_key,
         app_secret=tenant.app_secret[:10] + "...",
         tenant_name=tenant.tenant_name,
+        contact_name=tenant.contact_name,
+        contact_phone=tenant.contact_phone,
         status=tenant.status.value,
         user_id=str(tenant.user_id),
         username=owner.username if owner else "",
@@ -210,11 +220,7 @@ async def disable_tenant(
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     tenant.status = TenantStatus.INACTIVE

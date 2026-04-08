@@ -23,6 +23,15 @@
         </template>
       </el-table-column>
       <el-table-column prop="tenant_name" label="租户名称" min-width="150" />
+      <el-table-column label="联系信息" min-width="180">
+        <template #default="{ row }">
+          <div v-if="row.contact_name || row.contact_phone" class="text-xs leading-5">
+            <div v-if="row.contact_name" class="text-slate-700">{{ row.contact_name }}</div>
+            <div v-if="row.contact_phone" class="text-slate-500 font-mono">{{ row.contact_phone }}</div>
+          </div>
+          <span v-else class="text-slate-300 text-xs">-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="username" label="所属用户" width="120" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
@@ -62,6 +71,12 @@
         <el-form-item label="租户名称">
           <el-input v-model="editForm.tenant_name" placeholder="请输入租户名称" />
         </el-form-item>
+        <el-form-item label="联系人姓名">
+          <el-input v-model="editForm.contact_name" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="联系人电话">
+          <el-input v-model="editForm.contact_phone" placeholder="选填" />
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="editForm.status" style="width: 100%">
             <el-option label="启用" value="ACTIVE" />
@@ -86,6 +101,8 @@
             <div class="break-all leading-6">{{ selectedTenant.app_secret }}</div>
           </el-descriptions-item>
           <el-descriptions-item label="租户名称">{{ selectedTenant.tenant_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人姓名">{{ selectedTenant.contact_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人电话">{{ selectedTenant.contact_phone || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ selectedTenant.status }}</el-descriptions-item>
           <el-descriptions-item label="所属用户">{{ selectedTenant.username }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ selectedTenant.created_at }}</el-descriptions-item>
@@ -177,6 +194,8 @@ const addKeyDialogVisible = ref(false)
 const selectedTenantForProvider = ref(null)
 const editForm = ref({
   tenant_name: '',
+  contact_name: '',
+  contact_phone: '',
   status: 'ACTIVE'
 })
 const keyForm = ref({
@@ -225,6 +244,8 @@ const openCreateDialog = async () => {
   currentAppKey.value = ''
   editForm.value = {
     tenant_name: '',
+    contact_name: '',
+    contact_phone: '',
     status: 'ACTIVE'
   }
   editVisible.value = true
@@ -235,6 +256,8 @@ const openEditDialog = async (row) => {
   currentAppKey.value = row.app_key
   editForm.value = {
     tenant_name: row.tenant_name || '',
+    contact_name: row.contact_name || '',
+    contact_phone: row.contact_phone || '',
     status: (row.status || 'ACTIVE').toUpperCase()
   }
   editVisible.value = true

@@ -69,7 +69,7 @@ async def _save_conversation(
         db.query(Conversation).filter(Conversation.app_key == app_key).count() + 1
     )
     conversation = Conversation(
-        id=generate_snowflake_id(),
+        # id=generate_snowflake_id(),
         app_key=app_key,
         round_number=round_number,
         user_message=user_message,
@@ -248,7 +248,9 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     result = None
-    async for chunk in llm_client.chat_completion(messages, model, False, openai_payload):
+    async for chunk in llm_client.chat_completion(
+        messages, model, False, openai_payload
+    ):
         result = chunk
 
     if result is None:

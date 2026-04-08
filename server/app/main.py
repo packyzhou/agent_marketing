@@ -140,6 +140,30 @@ if not engine.url.drivername.startswith("sqlite"):
                 ALTER TABLE tb_provider_key
                 ADD UNIQUE KEY uk_app_key (app_key)
             """))
+
+        def _column_exists(table: str, column: str) -> bool:
+            return bool(conn.execute(text(
+                """
+                SELECT COUNT(1)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = :table
+                  AND column_name = :column
+                """
+            ), {"table": table, "column": column}).scalar())
+
+        if not _column_exists("tb_tenant", "contact_name"):
+            conn.execute(text(
+                "ALTER TABLE tb_tenant ADD COLUMN contact_name VARCHAR(100) NULL COMMENT '联系人姓名' AFTER tenant_name"
+            ))
+        if not _column_exists("tb_tenant", "contact_phone"):
+            conn.execute(text(
+                "ALTER TABLE tb_tenant ADD COLUMN contact_phone VARCHAR(20) NULL COMMENT '联系人电话' AFTER contact_name"
+            ))
+        if not _column_exists("tb_memory_meta", "total_duration_seconds"):
+            conn.execute(text(
+                "ALTER TABLE tb_memory_meta ADD COLUMN total_duration_seconds BIGINT DEFAULT 0 COMMENT '对话总时长(秒)' AFTER digest_file_path"
+            ))
 else:
     # SQLite 兼容逻辑
     with engine.begin() as conn:
