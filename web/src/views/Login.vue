@@ -143,7 +143,7 @@ const handleLogin = async () => {
       router.push('/admin/users')
       return
     }
-    router.push('/user/dashboard')
+    router.push('/admin/groups')
   } catch (error) {
     ElMessage.error(getErrorMessage(error, t('login.loginFail')))
   }

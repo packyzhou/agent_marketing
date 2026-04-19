@@ -8,7 +8,23 @@
     </div>
 
     <el-table :data="memories" stripe>
-      <el-table-column prop="app_key" label="AppKey" width="200" />
+      <el-table-column label="AppKey" min-width="220">
+        <template #default="{ row }">
+          <div class="break-all text-xs leading-5">{{ row.app_key }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="租户名称" min-width="140">
+        <template #default="{ row }">
+          <span v-if="row.tenant_name">{{ row.tenant_name }}</span>
+          <span v-else class="text-slate-300 text-xs">-</span>
+        </template>
+      </el-table-column>
+      <el-table-column v-if="isAdmin" prop="username" label="所属用户" width="120">
+        <template #default="{ row }">
+          <span v-if="row.username">{{ row.username }}</span>
+          <span v-else class="text-slate-300 text-xs">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="对话总时长" width="140">
         <template #default="{ row }">
           <span class="font-mono text-xs">{{ formatDuration(row.total_duration_seconds) }}</span>
@@ -31,7 +47,7 @@
           <el-button type="primary" size="small" @click="viewMemory(row)">
             查看详情
           </el-button>
-          <el-button type="danger" size="small" @click="clearMemory(row)">
+          <el-button v-if="isAdmin" type="danger" size="small" @click="clearMemory(row)">
             清理KV和Digest
           </el-button>
         </template>
@@ -67,9 +83,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../../api/request'
+
+const isAdmin = computed(() => (localStorage.getItem('roleType') || '').toUpperCase() === 'ADMIN')
 
 const memories = ref([])
 const detailVisible = ref(false)

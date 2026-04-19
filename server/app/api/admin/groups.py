@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ...core.database import get_db
-from ...core.deps import get_current_admin_user
+from ...core.deps import get_current_user, is_admin
 from ...core.utils import dt_to_local_str
 from ...models.user import User, Group, GroupMemberAppBinding
 from ...models.tenant import Tenant
@@ -118,10 +118,18 @@ async def list_groups(
     skip: int = 0,
     limit: int = 20,
     keyword: Optional[str] = None,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(Group, User).join(User, Group.owner_id == User.id)
+
+    # USER role: only see groups they own or belong to
+    if not is_admin(db, current_user):
+        query = query.filter(
+            (Group.owner_id == current_user.id)
+            | (Group.id == current_user.group_id)
+        )
+
     if keyword:
         text = keyword.strip()
         if text:
@@ -166,12 +174,17 @@ async def list_group_members(
     group_id: int,
     skip: int = 0,
     limit: int = 20,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     group = db.query(Group).filter(Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+
+    # USER role: can only view members of groups they own or belong to
+    if not is_admin(db, current_user):
+        if group.owner_id != current_user.id and group.id != current_user.group_id:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
     query = (
         db.query(User)
@@ -188,12 +201,17 @@ async def list_group_members(
 async def remove_group_member(
     group_id: int,
     member_id: int,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     group = db.query(Group).filter(Group.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+
+    # USER role: can only remove members from groups they own
+    if not is_admin(db, current_user):
+        if group.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
     member = (
         db.query(User)

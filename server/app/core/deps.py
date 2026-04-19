@@ -77,3 +77,8 @@ async def get_current_admin_user(
             detail="Not enough permissions"
         )
     return current_user
+
+
+def is_admin(db: Session, user: User) -> bool:
+    """Check whether the given user has ADMIN role type."""
+    return get_role_type(db, user.role) == RoleType.ADMIN.value

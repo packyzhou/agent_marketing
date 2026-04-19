@@ -117,17 +117,24 @@ const showDropdown = ref(false)
 const dropdownRef = ref(null)
 const profileForm = ref({ username: '', phone: '', real_name: '', password: '' })
 
-const menuItems = [
-  { path: '/admin/users', labelKey: 'admin.menu.users', icon: Users },
-  { path: '/admin/roles', labelKey: 'admin.menu.roles', icon: Shield },
-  { path: '/admin/groups', labelKey: 'admin.menu.groups', icon: FolderOpen },
-  { path: '/admin/tenants', labelKey: 'admin.menu.tenants', icon: Building2 },
-  { path: '/admin/providers', labelKey: 'admin.menu.providers', icon: Server },
-  { path: '/admin/tokens', labelKey: 'admin.menu.tokens', icon: BarChart3 },
-  { path: '/admin/memory', labelKey: 'admin.menu.memory', icon: Brain },
-  { path: '/admin/system-prompts', labelKey: 'admin.menu.systemPrompts', icon: FileText },
-  { path: '/admin/proxy-debug', labelKey: 'admin.menu.chatDebug', icon: MessageSquare }
+const roleType = computed(() => (localStorage.getItem('roleType') || '').toUpperCase())
+const isAdmin = computed(() => roleType.value === 'ADMIN')
+
+const allMenuItems = [
+  { path: '/admin/users', labelKey: 'admin.menu.users', icon: Users, adminOnly: true },
+  { path: '/admin/roles', labelKey: 'admin.menu.roles', icon: Shield, adminOnly: true },
+  { path: '/admin/groups', labelKey: 'admin.menu.groups', icon: FolderOpen, adminOnly: false },
+  { path: '/admin/tenants', labelKey: 'admin.menu.tenants', icon: Building2, adminOnly: false },
+  { path: '/admin/providers', labelKey: 'admin.menu.providers', icon: Server, adminOnly: true },
+  { path: '/admin/tokens', labelKey: 'admin.menu.tokens', icon: BarChart3, adminOnly: true },
+  { path: '/admin/memory', labelKey: 'admin.menu.memory', icon: Brain, adminOnly: false },
+  { path: '/admin/system-prompts', labelKey: 'admin.menu.systemPrompts', icon: FileText, adminOnly: true },
+  { path: '/admin/proxy-debug', labelKey: 'admin.menu.chatDebug', icon: MessageSquare, adminOnly: false }
 ]
+
+const menuItems = computed(() =>
+  isAdmin.value ? allMenuItems : allMenuItems.filter(item => !item.adminOnly)
+)
 
 const displayName = computed(() => localStorage.getItem('username') || 'User')
 

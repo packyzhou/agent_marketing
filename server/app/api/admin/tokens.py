@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, timedelta
 from ...core.database import get_db
-from ...core.deps import get_current_admin_user
+from ...core.deps import get_current_user, is_admin
 from ...models.user import User
 from ...models.token import TokenSummary, TokenDaily
 from ...models.tenant import Tenant
@@ -32,13 +32,16 @@ class TokenDailyResponse(BaseModel):
 async def list_token_stats(
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List token usage statistics for all tenants"""
-    summaries = db.query(TokenSummary, Tenant).join(
+    """List token usage statistics — ADMIN sees all, USER sees own tenants"""
+    query = db.query(TokenSummary, Tenant).join(
         Tenant, TokenSummary.app_key == Tenant.app_key
-    ).offset(skip).limit(limit).all()
+    )
+    if not is_admin(db, current_user):
+        query = query.filter(Tenant.user_id == current_user.id)
+    summaries = query.offset(skip).limit(limit).all()
 
     return [
         TokenStatsResponse(
@@ -60,10 +63,16 @@ async def list_token_stats(
 async def get_daily_token_stats(
     app_key: str,
     days: int = 30,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get daily token usage for a specific tenant"""
+    # USER role: can only view their own tenants' daily stats
+    if not is_admin(db, current_user):
+        tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
+        if not tenant or tenant.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+
     start_date = datetime.now() - timedelta(days=days)
 
     daily_stats = db.query(TokenDaily).filter(
@@ -82,14 +91,22 @@ async def get_daily_token_stats(
 
 @router.get("/token-stats/summary")
 async def get_token_summary(
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get overall token usage summary"""
-    total_tokens = db.query(func.sum(TokenSummary.total_tokens)).scalar() or 0
-    total_current_month = db.query(func.sum(TokenSummary.current_month_tokens)).scalar() or 0
-    total_last_month = db.query(func.sum(TokenSummary.last_month_tokens)).scalar() or 0
-    tenant_count = db.query(func.count(TokenSummary.app_key)).scalar() or 0
+    """Get overall token usage summary — scoped by role"""
+    q = db.query(TokenSummary)
+    if not is_admin(db, current_user):
+        own_app_keys = [
+            t.app_key for t in
+            db.query(Tenant.app_key).filter(Tenant.user_id == current_user.id).all()
+        ]
+        q = q.filter(TokenSummary.app_key.in_(own_app_keys)) if own_app_keys else q.filter(False)
+
+    total_tokens = q.with_entities(func.sum(TokenSummary.total_tokens)).scalar() or 0
+    total_current_month = q.with_entities(func.sum(TokenSummary.current_month_tokens)).scalar() or 0
+    total_last_month = q.with_entities(func.sum(TokenSummary.last_month_tokens)).scalar() or 0
+    tenant_count = q.with_entities(func.count(TokenSummary.app_key)).scalar() or 0
 
     monthly_change = None
     if total_last_month > 0:

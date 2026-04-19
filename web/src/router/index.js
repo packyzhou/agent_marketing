@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import AdminLayout from '../views/admin/Layout.vue'
-import UserLayout from '../views/user/Layout.vue'
 
 const routes = [
   {
@@ -41,11 +40,13 @@ const routes = [
       {
         path: 'users',
         name: 'AdminUsers',
+        meta: { adminOnly: true },
         component: () => import('../views/admin/Users.vue')
       },
       {
         path: 'roles',
         name: 'AdminRoles',
+        meta: { adminOnly: true },
         component: () => import('../views/admin/Roles.vue')
       },
       {
@@ -61,11 +62,13 @@ const routes = [
       {
         path: 'providers',
         name: 'AdminProviders',
+        meta: { adminOnly: true },
         component: () => import('../views/admin/Providers.vue')
       },
       {
         path: 'tokens',
         name: 'AdminTokens',
+        meta: { adminOnly: true },
         component: () => import('../views/admin/Tokens.vue')
       },
       {
@@ -76,6 +79,7 @@ const routes = [
       {
         path: 'system-prompts',
         name: 'AdminSystemPrompts',
+        meta: { adminOnly: true },
         component: () => import('../views/admin/SystemPrompts.vue')
       },
       {
@@ -86,45 +90,8 @@ const routes = [
     ]
   },
   {
-    path: '/user',
-    component: UserLayout,
-    children: [
-      {
-        path: 'dashboard',
-        name: 'UserDashboard',
-        component: () => import('../views/user/Dashboard.vue')
-      },
-      {
-        path: 'tenants',
-        name: 'UserTenants',
-        component: () => import('../views/user/Tenants.vue')
-      },
-      {
-        path: 'group-tenants',
-        name: 'UserGroupTenants',
-        component: () => import('../views/user/GroupTenants.vue')
-      },
-      {
-        path: 'groups',
-        name: 'UserGroups',
-        component: () => import('../views/user/Groups.vue')
-      },
-      {
-        path: 'tokens',
-        name: 'UserTokens',
-        component: () => import('../views/user/Tokens.vue')
-      },
-      {
-        path: 'memory',
-        name: 'UserMemory',
-        component: () => import('../views/user/Memory.vue')
-      },
-      {
-        path: 'proxy-debug',
-        name: 'UserProxyDebug',
-        component: () => import('../views/user/ProxyDebug.vue')
-      }
-    ]
+    path: '/user/:pathMatch(.*)*',
+    redirect: '/admin/groups'
   },
   {
     path: '/',
@@ -153,8 +120,9 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
-  if (to.path.startsWith('/admin') && roleType !== 'ADMIN') {
-    next('/user/dashboard')
+  // Admin-only pages require ADMIN role; other admin pages are accessible to all authenticated users
+  if (to.path.startsWith('/admin') && to.meta.adminOnly && roleType !== 'ADMIN') {
+    next('/admin/groups')
     return
   }
 

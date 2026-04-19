@@ -85,7 +85,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="注册时间" width="180" />
-        <el-table-column label="操作" width="120">
+        <el-table-column v-if="isAdmin || (selectedGroup && selectedGroup.owner_username === currentUsername)" label="操作" width="120">
           <template #default="{ row }">
             <el-button type="danger" size="small" @click="handleDeleteMember(row)">移出分组</el-button>
           </template>
@@ -107,9 +107,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../../api/request'
+
+const roleType = computed(() => (localStorage.getItem('roleType') || '').toUpperCase())
+const isAdmin = computed(() => roleType.value === 'ADMIN')
+const currentUsername = computed(() => localStorage.getItem('username') || '')
 
 const keyword = ref('')
 const groups = ref([])

@@ -32,7 +32,7 @@
           <span v-else class="text-slate-300 text-xs">-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="username" label="所属用户" width="120" />
+      <el-table-column v-if="isAdmin" prop="username" label="所属用户" width="120" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status.toUpperCase() === 'ACTIVE' ? 'success' : 'danger'">
@@ -56,6 +56,7 @@
           </el-button>
           <el-button type="success" size="small" @click="openEditDialog(row)">修改</el-button>
           <el-button
+            v-if="isAdmin"
             :type="row.status.toUpperCase() === 'ACTIVE' ? 'warning' : 'success'"
             size="small"
             @click="toggleTenantStatus(row)"
@@ -77,7 +78,7 @@
         <el-form-item label="联系人电话">
           <el-input v-model="editForm.contact_phone" placeholder="选填" />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item v-if="isAdmin" label="状态">
           <el-select v-model="editForm.status" style="width: 100%">
             <el-option label="启用" value="ACTIVE" />
             <el-option label="禁用" value="INACTIVE" />
@@ -179,6 +180,9 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../../api/request'
+
+const roleType = computed(() => (localStorage.getItem('roleType') || '').toUpperCase())
+const isAdmin = computed(() => roleType.value === 'ADMIN')
 
 const tenants = ref([])
 const statusFilter = ref('')
