@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS tb_group (
 -- 租户表
 CREATE TABLE IF NOT EXISTS tb_tenant (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
-    app_key VARCHAR(64) PRIMARY KEY COMMENT '应用密钥',
+    app_key VARCHAR(64) NOT NULL COMMENT '应用密钥',
     app_secret VARCHAR(128) NOT NULL COMMENT '应用秘钥',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     tenant_name VARCHAR(100) COMMENT '租户名称',
@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS tb_memory_meta (
 
 -- 初始管理员 (密码: admin123)
 INSERT INTO tb_user (id, username, password_hash, real_name, role) VALUES
-(1000000000000001, 'admin', '$2b$12$7PClnwmUNx.zogr/0ZUTSerDKm2V9TWdsZ13XImNaA/A/TSkkWMCC', '系统管理员', 'ADMIN');
+(1000000000000001, 'admin', '$2b$12$7PClnwmUNx.zogr/0ZUTSerDKm2V9TWdsZ13XImNaA/A/TSkkWMCC', '系统管理员', 'Aai_agent_platformDMIN');
 
 -- 初始角色
 INSERT INTO tb_role (code, name, role_type, description, is_system) VALUES
