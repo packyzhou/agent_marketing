@@ -164,6 +164,10 @@ if not engine.url.drivername.startswith("sqlite"):
             conn.execute(text(
                 "ALTER TABLE tb_memory_meta ADD COLUMN total_duration_seconds BIGINT DEFAULT 0 COMMENT '对话总时长(秒)' AFTER digest_file_path"
             ))
+        if not _column_exists("tb_memory_meta", "domain_file_path"):
+            conn.execute(text(
+                "ALTER TABLE tb_memory_meta ADD COLUMN domain_file_path VARCHAR(255) NULL COMMENT '领域记忆文件路径' AFTER digest_file_path"
+            ))
 else:
     # SQLite 兼容逻辑
     with engine.begin() as conn:

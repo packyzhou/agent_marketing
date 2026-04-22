@@ -20,6 +20,7 @@ class UserMemoryListResponse(BaseModel):
     last_processed_at: Optional[str]
     has_kv_file: bool
     has_digest_file: bool
+    has_domain_file: bool
 
 
 class UserMemoryDetailResponse(BaseModel):
@@ -27,8 +28,16 @@ class UserMemoryDetailResponse(BaseModel):
     tenant_name: Optional[str]
     kv_content: Optional[str]
     digest_content: Optional[str]
+    domain_content: Optional[str]
     rounds_count: int
     last_processed_at: Optional[str]
+
+
+def _resolve_domain_path(memory_meta: Optional[MemoryMeta], app_key: str) -> str:
+    from ...services.memory_service import get_domain_file
+    if memory_meta and memory_meta.domain_file_path:
+        return memory_meta.domain_file_path
+    return str(get_domain_file(app_key))
 
 
 def _get_owned_tenant(db: Session, current_user: User, app_key: str) -> Tenant:
@@ -60,33 +69,28 @@ async def list_user_memory(
     memory_items = db.query(MemoryMeta).filter(MemoryMeta.app_key.in_(app_keys)).all()
     memory_map = {item.app_key: item for item in memory_items}
 
-    return [
-        UserMemoryListResponse(
-            app_key=tenant.app_key,
-            tenant_name=tenant.tenant_name,
-            rounds_count=(
-                memory_map[tenant.app_key].last_processed_round
-                if tenant.app_key in memory_map
-                else 0
-            ),
-            last_processed_at=(
-                dt_to_local_str(memory_map[tenant.app_key].last_updated)
-                if tenant.app_key in memory_map
-                else None
-            ),
-            has_kv_file=bool(
-                tenant.app_key in memory_map
-                and memory_map[tenant.app_key].kv_file_path
-                and os.path.exists(memory_map[tenant.app_key].kv_file_path)
-            ),
-            has_digest_file=bool(
-                tenant.app_key in memory_map
-                and memory_map[tenant.app_key].digest_file_path
-                and os.path.exists(memory_map[tenant.app_key].digest_file_path)
-            ),
+    result = []
+    for tenant in tenants:
+        mem = memory_map.get(tenant.app_key)
+        domain_path = _resolve_domain_path(mem, tenant.app_key)
+        result.append(
+            UserMemoryListResponse(
+                app_key=tenant.app_key,
+                tenant_name=tenant.tenant_name,
+                rounds_count=(mem.last_processed_round if mem else 0),
+                last_processed_at=(
+                    dt_to_local_str(mem.last_updated) if mem else None
+                ),
+                has_kv_file=bool(
+                    mem and mem.kv_file_path and os.path.exists(mem.kv_file_path)
+                ),
+                has_digest_file=bool(
+                    mem and mem.digest_file_path and os.path.exists(mem.digest_file_path)
+                ),
+                has_domain_file=bool(domain_path and os.path.exists(domain_path)),
+            )
         )
-        for tenant in tenants
-    ]
+    return result
 
 
 @router.get("/memory/{app_key}", response_model=UserMemoryDetailResponse)
@@ -102,18 +106,24 @@ async def get_user_memory(
 
     kv_content = None
     digest_content = None
+    domain_content = None
     if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
         with open(memory_meta.kv_file_path, "r", encoding="utf-8") as file:
             kv_content = file.read()
     if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
         with open(memory_meta.digest_file_path, "r", encoding="utf-8") as file:
             digest_content = file.read()
+    domain_path = _resolve_domain_path(memory_meta, app_key)
+    if domain_path and os.path.exists(domain_path):
+        with open(domain_path, "r", encoding="utf-8") as file:
+            domain_content = file.read()
 
     return UserMemoryDetailResponse(
         app_key=app_key,
         tenant_name=tenant.tenant_name,
         kv_content=kv_content,
         digest_content=digest_content,
+        domain_content=domain_content,
         rounds_count=memory_meta.last_processed_round or 0,
         last_processed_at=dt_to_local_str(memory_meta.last_updated),
     )

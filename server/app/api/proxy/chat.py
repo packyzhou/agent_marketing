@@ -151,10 +151,10 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     model = body.get("model") or provider_key.model_name or "qwen-plus"
     stream = force_stream or body.get("stream", False)
 
-    memory_context = await load_memory(app_key)
+    memory_context = await load_memory(app_key, db=db)
     memory_context = (
         memory_context
-        + " \n ---------------- \n 以上是与用户相关的历史记忆内容,请根据用户输入的内容进行回答，无关的内容忽略。"
+        + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
         if memory_context
         else None
     )

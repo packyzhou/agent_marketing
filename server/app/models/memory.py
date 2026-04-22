@@ -9,5 +9,6 @@ class MemoryMeta(Base):
     last_processed_round = Column(Integer, default=0)
     kv_file_path = Column(String(255), nullable=True)
     digest_file_path = Column(String(255), nullable=True)
+    domain_file_path = Column(String(255), nullable=True)
     total_duration_seconds = Column(BigInteger, default=0)
     last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
