@@ -3,7 +3,21 @@
     "allow": [
       "Bash(powershell -command ':*)",
       "Bash(/c/ProgramData/anaconda3/python.exe -c \"import uvicorn; print\\(uvicorn.__version__\\)\")",
-      "Bash(grep -E \"\\\\.vue$\")"
+      "Bash(grep -E \"\\\\.vue$\")",
+      "Bash(npx vite:*)",
+      "Bash(python -c \"from app.api.admin.tokens import router\")",
+      "Bash(pip show:*)",
+      "Bash(python -m pip list)",
+      "Bash(where python:*)",
+      "Bash(dir d:/work/code/ai/agent_marketing/server/.venv)",
+      "Bash(dir d:/work/code/ai/agent_marketing/server/venv)",
+      "Bash(C:/Users/Administrator/AppData/Local/Programs/Python/Python310/python.exe -c ':*)",
+      "Bash(pip list:*)",
+      "Bash(pip install:*)",
+      "Bash(python -c ':*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(curl -v -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl -v -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")"
     ]
   }
 }

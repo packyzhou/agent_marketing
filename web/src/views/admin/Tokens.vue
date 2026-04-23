@@ -1,34 +1,41 @@
 <template>
   <div>
-    <h2 class="text-2xl font-bold mb-4">Token使用统计</h2>
+    <div class="admin-page-header">
+      <div>
+        <h2>Token 使用统计</h2>
+        <p>掌握租户 Token 消耗与月度变化趋势</p>
+      </div>
+    </div>
 
-    <el-card class="mb-4">
-      <template #header>
-        <span class="font-bold">总体统计</span>
-      </template>
-      <div class="grid grid-cols-4 gap-4">
-        <div class="text-center">
-          <div class="text-gray-500 text-sm">总Token数</div>
-          <div class="text-2xl font-bold text-primary">{{ summary.total_tokens?.toLocaleString() }}</div>
-        </div>
-        <div class="text-center">
-          <div class="text-gray-500 text-sm">本月Token</div>
-          <div class="text-2xl font-bold text-green-600">{{ summary.current_month_tokens?.toLocaleString() }}</div>
-        </div>
-        <div class="text-center">
-          <div class="text-gray-500 text-sm">上月Token</div>
-          <div class="text-2xl font-bold text-gray-600">{{ summary.last_month_tokens?.toLocaleString() }}</div>
-        </div>
-        <div class="text-center">
-          <div class="text-gray-500 text-sm">月度变化</div>
-          <div class="text-2xl font-bold" :class="summary.monthly_change_percent >= 0 ? 'text-red-600' : 'text-green-600'">
-            {{ summary.monthly_change_percent?.toFixed(2) }}%
-          </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-colors">
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">总 Token 数</div>
+        <div class="text-2xl font-black tracking-tight text-slate-900 font-mono">
+          {{ summary.total_tokens?.toLocaleString() || '0' }}
         </div>
       </div>
-    </el-card>
+      <div class="border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-colors">
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">本月 Token</div>
+        <div class="text-2xl font-black tracking-tight text-cyan-500 font-mono">
+          {{ summary.current_month_tokens?.toLocaleString() || '0' }}
+        </div>
+      </div>
+      <div class="border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-colors">
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">上月 Token</div>
+        <div class="text-2xl font-black tracking-tight text-slate-500 font-mono">
+          {{ summary.last_month_tokens?.toLocaleString() || '0' }}
+        </div>
+      </div>
+      <div class="border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-colors">
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">月度变化</div>
+        <div class="text-2xl font-black tracking-tight font-mono"
+          :class="summary.monthly_change_percent >= 0 ? 'text-rose-500' : 'text-emerald-500'">
+          {{ summary.monthly_change_percent?.toFixed(2) || '0.00' }}%
+        </div>
+      </div>
+    </div>
 
-    <el-table :data="tokenStats" border stripe>
+    <el-table :data="tokenStats" stripe>
       <el-table-column prop="app_key" label="AppKey" width="200" />
       <el-table-column prop="tenant_name" label="租户名称" width="150" />
       <el-table-column prop="total_tokens" label="总Token" width="120" sortable>
@@ -62,10 +69,10 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="chartVisible" title="30天Token使用趋势" width="900px">
-      <div class="text-lg font-medium mb-2">Token数量趋势图</div>
+    <el-dialog v-model="chartVisible" title="30天 Token 使用趋势" width="900px">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Token 数量趋势图</div>
       <div ref="tokenChartContainer" style="width: 100%; height: 320px;"></div>
-      <div class="text-lg font-medium mt-6 mb-2">请求次数趋势图</div>
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-8 mb-3">请求次数趋势图</div>
       <div ref="requestChartContainer" style="width: 100%; height: 320px;"></div>
     </el-dialog>
   </div>
@@ -199,8 +206,3 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.text-primary {
-  color: #00796B;
-}
-</style>

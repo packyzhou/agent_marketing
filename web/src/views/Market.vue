@@ -31,7 +31,7 @@
           <button
             v-for="tab in tabs"
             :key="tab.id"
-            @click="setTab(tab.id)"
+            @click="handleTabClick(tab)"
             :class="[
               'px-8 h-full text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 -mb-px',
               activeTab === tab.id
@@ -145,23 +145,33 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Star, TrendingUp, Building2, Database, Clock, ChevronRight } from 'lucide-vue-next'
 import LangSwitcher from '../components/LangSwitcher.vue'
 import PaymentModal from '../components/PaymentModal.vue'
+
+const router = useRouter()
+const { t } = useI18n()
 
 const paymentVisible = ref(false)
 const paymentAgent   = ref(null)
 
 // ── Tab Config ──────────────────────────────────────────────────────────────
-const tabs = [
+const tabs = computed(() => [
+  { id: 'home',      label: t('nav.home'),       to: '/home' },
   { id: 'rating',    label: '评分（从高到低）' },
   { id: 'purchases', label: '购买量（从多到少）' },
   { id: 'memory',    label: '记忆量（从大到小）' },
-]
+])
 const activeTab = ref('rating')
 
-function setTab(id) {
-  activeTab.value = id
+function handleTabClick(tab) {
+  if (tab.to) {
+    router.push(tab.to)
+    return
+  }
+  activeTab.value = tab.id
   currentPage.value = 1
 }
 

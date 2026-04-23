@@ -29,7 +29,8 @@
       "Bash(curl --max-time 10 http://localhost:8000/api/auth/login -X POST -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
       "Bash(curl --max-time 5 http://localhost:8000/)",
       "Bash(python -c ':*)",
-      "Bash(wmic process:*)"
+      "Bash(wmic process:*)",
+      "Bash(xargs grep *)"
     ]
   }
 }

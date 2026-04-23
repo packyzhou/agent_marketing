@@ -15,13 +15,14 @@ def _ensure_owned_group(db: Session, owner_id: int, username: str):
     if group:
         return group
     group = Group(
-        id=generate_snowflake_id(),
+        # id=generate_snowflake_id(),
         group_name=f"{username}的团队",
         owner_id=owner_id,
     )
     db.add(group)
     db.flush()
     return group
+
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -34,7 +35,9 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     if user_data.phone:
         existing_phone = db.query(User).filter(User.phone == user_data.phone).first()
         if existing_phone:
-            raise HTTPException(status_code=400, detail="Phone number already registered")
+            raise HTTPException(
+                status_code=400, detail="Phone number already registered"
+            )
 
     # 创建新用户
     new_user_id = generate_snowflake_id()
@@ -70,13 +73,14 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
     return user
 
+
 @router.post("/login", response_model=Token)
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == user_data.username).first()
     if not user or not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            detail="Incorrect username or password",
         )
 
     access_token = create_access_token(data={"sub": user.id})

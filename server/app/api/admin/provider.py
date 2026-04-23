@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from sqlalchemy import and_
 from ...core.database import get_db
-from ...core.deps import get_current_admin_user
+from ...core.deps import get_current_admin_user, get_current_user, is_admin
 from ...core.snowflake import generate_snowflake_id
 from ...core.utils import dt_to_local_str
 from ...models.provider import Provider, ProviderKey, ProviderStatus
@@ -91,7 +91,7 @@ async def list_providers(
     skip: int = 0,
     limit: int = 20,
     status: Optional[str] = None,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List all AI providers"""
@@ -121,7 +121,7 @@ async def create_provider(
     payload["name"] = payload["name"].strip()
     payload["code"] = payload["code"].strip()
     payload["base_url"] = payload["base_url"].strip()
-    payload["id"] = generate_snowflake_id()
+    # payload["id"] = generate_snowflake_id()
     provider = Provider(**payload)
     db.add(provider)
     db.commit()
@@ -210,16 +210,14 @@ async def list_provider_keys(
 )
 async def list_tenant_provider_keys(
     app_key: str,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    if not is_admin(db, current_user) and tenant.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     records = (
         db.query(ProviderKey, Provider)
         .join(Provider, Provider.id == ProviderKey.provider_id)
@@ -245,16 +243,14 @@ async def list_tenant_provider_keys(
 async def create_tenant_provider_key(
     app_key: str,
     key_data: ProviderKeyCreate,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    if not is_admin(db, current_user) and tenant.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     if str(getattr(tenant.status, "value", tenant.status)).upper() != "ACTIVE":
         raise HTTPException(status_code=400, detail="Tenant is inactive")
     provider = db.query(Provider).filter(Provider.id == key_data.provider_id).first()
@@ -291,7 +287,7 @@ async def create_tenant_provider_key(
         )
 
     key = ProviderKey(
-        id=generate_snowflake_id(),
+        # id=generate_snowflake_id(),
         app_key=app_key,
         provider_id=key_data.provider_id,
         api_key=key_data.api_key.strip(),
@@ -319,16 +315,14 @@ async def create_tenant_provider_key(
 async def delete_tenant_provider_key(
     app_key: str,
     key_id: int,
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.app_key == app_key, Tenant.user_id == current_user.id)
-        .first()
-    )
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    if not is_admin(db, current_user) and tenant.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     key = (
         db.query(ProviderKey)
         .filter(ProviderKey.id == key_id, ProviderKey.app_key == app_key)

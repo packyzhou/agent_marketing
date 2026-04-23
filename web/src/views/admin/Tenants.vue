@@ -1,9 +1,12 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-2xl font-bold">租户管理</h2>
+    <div class="admin-page-header">
+      <div>
+        <h2>租户管理</h2>
+        <p>管理平台租户、AppKey 及供应商 API 配置</p>
+      </div>
       <div class="flex gap-2">
-        <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 150px">
+        <el-select v-model="statusFilter" placeholder="筛选状态" clearable @change="loadTenants" style="width: 160px">
           <el-option label="全部" value="" />
           <el-option label="启用" value="active" />
           <el-option label="禁用" value="inactive" />
@@ -12,7 +15,7 @@
       </div>
     </div>
 
-    <el-table :data="tenants" border stripe>
+    <el-table :data="tenants" stripe>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column label="AppKey" min-width="240">
         <template #default="{ row }">
@@ -20,7 +23,16 @@
         </template>
       </el-table-column>
       <el-table-column prop="tenant_name" label="租户名称" min-width="150" />
-      <el-table-column prop="username" label="所属用户" width="120" />
+      <el-table-column label="联系信息" min-width="180">
+        <template #default="{ row }">
+          <div v-if="row.contact_name || row.contact_phone" class="text-xs leading-5">
+            <div v-if="row.contact_name" class="text-slate-700">{{ row.contact_name }}</div>
+            <div v-if="row.contact_phone" class="text-slate-500 font-mono">{{ row.contact_phone }}</div>
+          </div>
+          <span v-else class="text-slate-300 text-xs">-</span>
+        </template>
+      </el-table-column>
+      <el-table-column v-if="isAdmin" prop="username" label="所属用户" width="120" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status.toUpperCase() === 'ACTIVE' ? 'success' : 'danger'">
@@ -44,6 +56,7 @@
           </el-button>
           <el-button type="success" size="small" @click="openEditDialog(row)">修改</el-button>
           <el-button
+            v-if="isAdmin"
             :type="row.status.toUpperCase() === 'ACTIVE' ? 'warning' : 'success'"
             size="small"
             @click="toggleTenantStatus(row)"
@@ -59,7 +72,13 @@
         <el-form-item label="租户名称">
           <el-input v-model="editForm.tenant_name" placeholder="请输入租户名称" />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item label="联系人姓名">
+          <el-input v-model="editForm.contact_name" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="联系人电话">
+          <el-input v-model="editForm.contact_phone" placeholder="选填" />
+        </el-form-item>
+        <el-form-item v-if="isAdmin" label="状态">
           <el-select v-model="editForm.status" style="width: 100%">
             <el-option label="启用" value="ACTIVE" />
             <el-option label="禁用" value="INACTIVE" />
@@ -83,14 +102,16 @@
             <div class="break-all leading-6">{{ selectedTenant.app_secret }}</div>
           </el-descriptions-item>
           <el-descriptions-item label="租户名称">{{ selectedTenant.tenant_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人姓名">{{ selectedTenant.contact_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人电话">{{ selectedTenant.contact_phone || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">{{ selectedTenant.status }}</el-descriptions-item>
           <el-descriptions-item label="所属用户">{{ selectedTenant.username }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ selectedTenant.created_at }}</el-descriptions-item>
         </el-descriptions>
 
-        <div class="mt-4" v-if="selectedTenant.bound_users && selectedTenant.bound_users.length > 0">
-          <h3 class="font-bold mb-2">绑定用户</h3>
-          <el-table :data="selectedTenant.bound_users" border size="small">
+        <div class="mt-6" v-if="selectedTenant.bound_users && selectedTenant.bound_users.length > 0">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">绑定用户</h3>
+          <el-table :data="selectedTenant.bound_users" size="small">
             <el-table-column prop="id" label="用户ID" min-width="140" />
             <el-table-column prop="name" label="姓名" min-width="120" />
             <el-table-column prop="phone" label="手机号" />
@@ -110,7 +131,7 @@
         >
           添加API配置
         </el-button>
-        <el-table :data="providerKeys" border size="small">
+        <el-table :data="providerKeys" size="small">
           <el-table-column prop="provider_name" label="供应商" min-width="120" />
           <el-table-column prop="model_name" label="模型" min-width="150" />
           <el-table-column prop="api_key" label="API Key" min-width="240">
@@ -160,6 +181,9 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 
+const roleType = computed(() => (localStorage.getItem('roleType') || '').toUpperCase())
+const isAdmin = computed(() => roleType.value === 'ADMIN')
+
 const tenants = ref([])
 const statusFilter = ref('')
 const detailVisible = ref(false)
@@ -174,6 +198,8 @@ const addKeyDialogVisible = ref(false)
 const selectedTenantForProvider = ref(null)
 const editForm = ref({
   tenant_name: '',
+  contact_name: '',
+  contact_phone: '',
   status: 'ACTIVE'
 })
 const keyForm = ref({
@@ -222,6 +248,8 @@ const openCreateDialog = async () => {
   currentAppKey.value = ''
   editForm.value = {
     tenant_name: '',
+    contact_name: '',
+    contact_phone: '',
     status: 'ACTIVE'
   }
   editVisible.value = true
@@ -232,6 +260,8 @@ const openEditDialog = async (row) => {
   currentAppKey.value = row.app_key
   editForm.value = {
     tenant_name: row.tenant_name || '',
+    contact_name: row.contact_name || '',
+    contact_phone: row.contact_phone || '',
     status: (row.status || 'ACTIVE').toUpperCase()
   }
   editVisible.value = true

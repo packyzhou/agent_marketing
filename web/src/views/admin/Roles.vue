@@ -1,21 +1,26 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex gap-2">
-        <el-input
-          v-model="keyword"
-          placeholder="搜索角色编码 / 名称"
-          clearable
-          style="width: 260px"
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-        />
-        <el-button type="primary" @click="handleSearch">查询</el-button>
+    <div class="admin-page-header">
+      <div>
+        <h2>角色管理</h2>
+        <p>定义系统内可分配的角色及其权限类型</p>
       </div>
       <el-button type="primary" @click="openCreateDialog">新增角色</el-button>
     </div>
 
-    <el-table :data="roles" border stripe v-loading="loading">
+    <div class="flex gap-2 mb-4">
+      <el-input
+        v-model="keyword"
+        placeholder="搜索角色编码 / 名称"
+        clearable
+        style="width: 280px"
+        @keyup.enter="handleSearch"
+        @clear="handleSearch"
+      />
+      <el-button type="primary" @click="handleSearch">查询</el-button>
+    </div>
+
+    <el-table :data="roles" stripe v-loading="loading">
       <el-table-column prop="code" label="角色编码" width="140" />
       <el-table-column prop="name" label="角色名称" width="140" />
       <el-table-column prop="role_type" label="权限类型" width="120">
@@ -71,8 +76,8 @@
     </el-dialog>
 
     <el-dialog v-model="assignVisible" title="配置用户角色" width="680px">
-      <div class="mb-3 text-sm text-gray-500">当前角色：{{ selectedRole?.name || '-' }}</div>
-      <el-table :data="users" border stripe v-loading="userLoading">
+      <div class="mb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">当前角色：{{ selectedRole?.name || '-' }}</div>
+      <el-table :data="users" stripe v-loading="userLoading">
         <el-table-column prop="username" label="账号" width="150" />
         <el-table-column prop="phone" label="手机号" width="150" />
         <el-table-column prop="real_name" label="姓名" width="120" />

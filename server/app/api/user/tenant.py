@@ -437,7 +437,9 @@ async def delete_group_member(
 ):
     group = _get_accessible_group(db, current_user, group_id)
     if group.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only group owner can delete members")
+        raise HTTPException(
+            status_code=403, detail="Only group owner can delete members"
+        )
 
     member = (
         db.query(User)
@@ -541,7 +543,7 @@ async def create_provider_key(
         return existing_key
 
     provider_key = ProviderKey(
-        id=generate_snowflake_id(),
+        # id=generate_snowflake_id(),
         app_key=app_key,
         provider_id=key_data.provider_id,
         api_key=key_data.api_key,
