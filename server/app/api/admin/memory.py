@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
-import os
+from pathlib import Path
 from ...core.database import get_db
 from ...core.deps import get_current_user, is_admin
 from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
+from ...services.memory_service import get_domain_file, resolve_memory_file_path
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -35,21 +36,27 @@ class MemoryResponse(BaseModel):
 
 
 def _read_text_file(path: Optional[str]) -> str:
-    if not path or not os.path.exists(path):
+    resolved_path = resolve_memory_file_path(path)
+    if not resolved_path or not resolved_path.exists():
         return ""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(resolved_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception:
         return ""
 
 
 def _resolve_domain_path(mem: Optional[MemoryMeta], app_key: str) -> str:
-    """优先使用元数据中的路径；不存在时按约定拼接，以便旧数据兼容。"""
-    from ...services.memory_service import get_domain_file
-    if mem and mem.domain_file_path:
-        return mem.domain_file_path
-    return str(get_domain_file(app_key))
+    resolved_path = resolve_memory_file_path(
+        mem.domain_file_path if mem else None,
+        get_domain_file(app_key)
+    )
+    return str(resolved_path) if resolved_path else ""
+
+
+def _memory_file_exists(path: Optional[str]) -> bool:
+    resolved_path = resolve_memory_file_path(path)
+    return bool(resolved_path and resolved_path.exists())
 
 
 def _calc_memory_size(kv_content: str, digest_content: str, domain_content: str = "") -> int:
@@ -132,9 +139,9 @@ async def list_all_memory(
                 total_duration_seconds=(mem.total_duration_seconds if mem else 0) or 0,
                 memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
                 last_processed_at=dt_to_local_str(mem.last_updated) if mem else None,
-                has_kv_file=bool(mem and mem.kv_file_path and os.path.exists(mem.kv_file_path)),
-                has_digest_file=bool(mem and mem.digest_file_path and os.path.exists(mem.digest_file_path)),
-                has_domain_file=bool(domain_path and os.path.exists(domain_path))
+                has_kv_file=bool(mem and _memory_file_exists(mem.kv_file_path)),
+                has_digest_file=bool(mem and _memory_file_exists(mem.digest_file_path)),
+                has_domain_file=bool(domain_path and Path(domain_path).exists())
             )
         )
     return result
@@ -159,18 +166,20 @@ async def clear_memory_files(
     cleared_digest = False
     cleared_domain = False
 
-    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
-        with open(memory_meta.kv_file_path, "w", encoding="utf-8") as f:
+    kv_path = resolve_memory_file_path(memory_meta.kv_file_path)
+    if kv_path and kv_path.exists():
+        with open(kv_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_kv = True
 
-    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
-        with open(memory_meta.digest_file_path, "w", encoding="utf-8") as f:
+    digest_path = resolve_memory_file_path(memory_meta.digest_file_path)
+    if digest_path and digest_path.exists():
+        with open(digest_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_digest = True
 
     domain_path = _resolve_domain_path(memory_meta, app_key)
-    if domain_path and os.path.exists(domain_path):
+    if domain_path and Path(domain_path).exists():
         with open(domain_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_domain = True

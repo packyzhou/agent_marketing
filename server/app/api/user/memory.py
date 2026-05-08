@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import os
 from ...core.database import get_db
 from ...core.deps import get_current_user
 from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
+from ...services.memory_service import get_domain_file, resolve_memory_file_path
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -34,10 +34,24 @@ class UserMemoryDetailResponse(BaseModel):
 
 
 def _resolve_domain_path(memory_meta: Optional[MemoryMeta], app_key: str) -> str:
-    from ...services.memory_service import get_domain_file
-    if memory_meta and memory_meta.domain_file_path:
-        return memory_meta.domain_file_path
-    return str(get_domain_file(app_key))
+    resolved_path = resolve_memory_file_path(
+        memory_meta.domain_file_path if memory_meta else None,
+        get_domain_file(app_key)
+    )
+    return str(resolved_path) if resolved_path else ""
+
+
+def _memory_file_exists(path: Optional[str]) -> bool:
+    resolved_path = resolve_memory_file_path(path)
+    return bool(resolved_path and resolved_path.exists())
+
+
+def _read_memory_file(path: Optional[str]) -> Optional[str]:
+    resolved_path = resolve_memory_file_path(path)
+    if not resolved_path or not resolved_path.exists():
+        return None
+    with open(resolved_path, "r", encoding="utf-8") as file:
+        return file.read()
 
 
 def _get_owned_tenant(db: Session, current_user: User, app_key: str) -> Tenant:
@@ -81,13 +95,9 @@ async def list_user_memory(
                 last_processed_at=(
                     dt_to_local_str(mem.last_updated) if mem else None
                 ),
-                has_kv_file=bool(
-                    mem and mem.kv_file_path and os.path.exists(mem.kv_file_path)
-                ),
-                has_digest_file=bool(
-                    mem and mem.digest_file_path and os.path.exists(mem.digest_file_path)
-                ),
-                has_domain_file=bool(domain_path and os.path.exists(domain_path)),
+                has_kv_file=bool(mem and _memory_file_exists(mem.kv_file_path)),
+                has_digest_file=bool(mem and _memory_file_exists(mem.digest_file_path)),
+                has_domain_file=bool(domain_path and _memory_file_exists(domain_path)),
             )
         )
     return result
@@ -107,16 +117,10 @@ async def get_user_memory(
     kv_content = None
     digest_content = None
     domain_content = None
-    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
-        with open(memory_meta.kv_file_path, "r", encoding="utf-8") as file:
-            kv_content = file.read()
-    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
-        with open(memory_meta.digest_file_path, "r", encoding="utf-8") as file:
-            digest_content = file.read()
+    kv_content = _read_memory_file(memory_meta.kv_file_path)
+    digest_content = _read_memory_file(memory_meta.digest_file_path)
     domain_path = _resolve_domain_path(memory_meta, app_key)
-    if domain_path and os.path.exists(domain_path):
-        with open(domain_path, "r", encoding="utf-8") as file:
-            domain_content = file.read()
+    domain_content = _read_memory_file(domain_path)
 
     return UserMemoryDetailResponse(
         app_key=app_key,

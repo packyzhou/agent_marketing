@@ -22,7 +22,7 @@ api.interceptors.response.use(
       localStorage.removeItem('roleName')
       localStorage.removeItem('roleType')
       localStorage.removeItem('username')
-      window.location.href = '/login'
+      window.location.href = '/agent_marketing/login'
     }
     return Promise.reject(error)
   }

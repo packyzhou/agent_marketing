@@ -31,6 +31,20 @@ def get_domain_file(app_key: str) -> Path:
     return MEMORY_DIR / f"memory_domain_{app_key}.md"
 
 
+def resolve_memory_file_path(path: Optional[str], fallback: Optional[Path] = None) -> Optional[Path]:
+    if not path:
+        return fallback
+    normalized = path.replace("\\", "/")
+    candidate = Path(normalized)
+    if candidate.is_absolute():
+        return candidate
+    if normalized.startswith("memory_files/"):
+        return Path(normalized)
+    if re.match(r"^[A-Za-z]:/", normalized):
+        return MEMORY_DIR / candidate.name
+    return MEMORY_DIR / candidate.name
+
+
 def _read_domain(path: Path) -> dict:
     """领域记忆以 JSON 形式存储，返回 {} 以便新增二级分类扩展。"""
     if not path.exists():
@@ -277,17 +291,9 @@ async def _process_memory_with_ai(app_key: str) -> None:
             ) + batch_duration_seconds
             db.commit()
 
-        kv_path = Path(meta.kv_file_path) if meta.kv_file_path else get_kv_file(app_key)
-        digest_path = (
-            Path(meta.digest_file_path)
-            if meta.digest_file_path
-            else get_digest_file(app_key)
-        )
-        domain_path = (
-            Path(meta.domain_file_path)
-            if meta.domain_file_path
-            else get_domain_file(app_key)
-        )
+        kv_path = resolve_memory_file_path(meta.kv_file_path, get_kv_file(app_key))
+        digest_path = resolve_memory_file_path(meta.digest_file_path, get_digest_file(app_key))
+        domain_path = resolve_memory_file_path(meta.domain_file_path, get_domain_file(app_key))
 
         existing_fact = (
             kv_path.read_text(encoding="utf-8").strip() if kv_path.exists() else ""
