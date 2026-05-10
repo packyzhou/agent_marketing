@@ -37,6 +37,7 @@ services:
       - ai_agent_network
     volumes:
       - ./server/memory_files:/app/memory_files
+      - ./server/message:/app/message
 
   frontend:
     build:

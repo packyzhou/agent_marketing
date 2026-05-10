@@ -72,7 +72,7 @@ cd agent_marketing
 
 # Start all services
 docker-compose up -d --build
-
+docker compose up -d --build backend
 # Wait 1-2 minutes, then verify
 docker-compose ps
 ```

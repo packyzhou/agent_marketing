@@ -67,7 +67,8 @@ class OllamaLLM(BaseLLM):
                             data = json.loads(line.decode("utf-8"))
                         except json.JSONDecodeError:
                             continue
-                        token = data.get("response", "")
+                        token = data.get("response")
+                        token = token if isinstance(token, str) else ""
                         accumulated += token
                         done = data.get("done", False)
 
@@ -97,7 +98,8 @@ class OllamaLLM(BaseLLM):
                             data = json.loads(line.decode("utf-8"))
                         except json.JSONDecodeError:
                             continue
-                        full_text += data.get("response", "")
+                        token = data.get("response")
+                        full_text += token if isinstance(token, str) else ""
                         if data.get("done"):
                             break
 

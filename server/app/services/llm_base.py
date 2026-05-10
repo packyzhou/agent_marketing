@@ -68,8 +68,9 @@ class OpenAICompatibleLLM(BaseLLM):
     """OpenAI-SDK-based implementation for any OpenAI-compatible endpoint."""
 
     def _create_client(self) -> AsyncOpenAI:
+        print(f"Creating client with api_key: {self.api_key}, base_url: {self.base_url}")
         return AsyncOpenAI(
-            api_key=self.api_key or "none",
+            api_key=self.api_key,
             base_url=self.base_url,
         )
 

@@ -3,6 +3,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import asyncio
+import re
+from datetime import datetime, timedelta
+from pathlib import Path
 from ...core.database import get_db
 from ...core.snowflake import generate_snowflake_id
 from ...models.tenant import Tenant
@@ -15,6 +18,8 @@ import json
 import httpx
 
 router = APIRouter()
+MESSAGE_DIR = Path("./message")
+MESSAGE_RETENTION_DAYS = 7
 
 
 def _resolve_app_key(request: Request, body: dict) -> str:
@@ -60,6 +65,36 @@ def _build_openai_payload(body: dict) -> dict:
     payload = dict(body)
     payload.pop("app_key", None)
     return payload
+
+
+def _safe_filename_part(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", value)
+
+
+def _cleanup_old_message_files(now: datetime) -> None:
+    cutoff = now.date() - timedelta(days=MESSAGE_RETENTION_DAYS - 1)
+    for path in MESSAGE_DIR.glob("message_*_*.txt"):
+        try:
+            date_text = path.stem.rsplit("_", 1)[-1]
+            file_date = datetime.strptime(date_text, "%Y%m%d").date()
+        except ValueError:
+            continue
+        if file_date < cutoff:
+            path.unlink(missing_ok=True)
+
+
+def _save_llm_messages(app_key: str, messages: list) -> None:
+    now = datetime.now()
+    MESSAGE_DIR.mkdir(parents=True, exist_ok=True)
+    _cleanup_old_message_files(now)
+    safe_app_key = _safe_filename_part(app_key)
+    file_path = MESSAGE_DIR / f"message_{safe_app_key}_{now.strftime('%Y%m%d')}.txt"
+    payload = {
+        "app_key": app_key,
+        "created_at": now.isoformat(timespec="seconds"),
+        "messages": messages,
+    }
+    file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 async def _save_conversation(
@@ -148,6 +183,10 @@ def _message_content_to_text(content) -> str:
     return ""
 
 
+def _normalize_text(value) -> str:
+    return value if isinstance(value, str) else ""
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
@@ -185,6 +224,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     if system_content_parts:
         messages.insert(0, {"role": "system", "content": "\n\n".join(system_content_parts)})
     openai_payload["messages"] = messages
+    _save_llm_messages(app_key, messages)
     print(f"最终输入openai_payload-messages：{messages}")
     llm_client = get_llm_client(provider.code, provider_key.api_key, provider.base_url)
     total_tokens = 0
@@ -242,11 +282,11 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
                     delta = first_choice.get("delta", {})
                     if not isinstance(delta, dict):
                         delta = {}
-                    content = delta.get("content", "")
+                    content = _normalize_text(delta.get("content"))
                     if not content and "message" in first_choice:
                         message_obj = first_choice.get("message", {})
                         if isinstance(message_obj, dict):
-                            content = message_obj.get("content", "")
+                            content = _normalize_text(message_obj.get("content"))
                     ai_response += content
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
         except httpx.HTTPStatusError as e:
@@ -300,7 +340,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     )
     if not isinstance(message_obj, dict):
         message_obj = {}
-    ai_response = message_obj.get("content", "")
+    ai_response = _normalize_text(message_obj.get("content"))
     if completion_tokens <= 0:
         completion_tokens = (
             max(int(llm_client.count_tokens(ai_response)), 0) if ai_response else 0
