@@ -138,15 +138,35 @@ def _estimate_prompt_tokens(llm_client, messages: list) -> int:
     return max(int(llm_client.count_tokens(joined)), 0) if joined else 0
 
 
+def _message_content_to_text(content) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        return "\n".join(str(item).strip() for item in content if item).strip()
+    if content is not None:
+        return str(content).strip()
+    return ""
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
     provider_key, provider = _resolve_provider_context(db, app_key)
     openai_payload = _build_openai_payload(body)
-
     messages = body.get("messages", [])
+    print(f"用户输入messages：{messages}")
     if not isinstance(messages, list) or len(messages) == 0:
         raise HTTPException(status_code=400, detail="messages is required")
+    system_contexts = []
+    user_messages = []
+    for message in messages:
+        if isinstance(message, dict) and message.get("role") == "system":
+            system_content = _message_content_to_text(message.get("content"))
+            if system_content:
+                system_contexts.append(system_content)
+        else:
+            user_messages.append(message)
+    messages = user_messages
 
     model = body.get("model") or provider_key.model_name or "qwen-plus"
     stream = force_stream or body.get("stream", False)
@@ -158,9 +178,14 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         if memory_context
         else None
     )
+    system_content_parts = []
     if memory_context:
-        messages.insert(0, {"role": "system", "content": memory_context})
-
+        system_content_parts.append(memory_context)
+    system_content_parts.extend(system_contexts)
+    if system_content_parts:
+        messages.insert(0, {"role": "system", "content": "\n\n".join(system_content_parts)})
+    openai_payload["messages"] = messages
+    print(f"最终输入openai_payload-messages：{messages}")
     llm_client = get_llm_client(provider.code, provider_key.api_key, provider.base_url)
     total_tokens = 0
     prompt_tokens = 0
