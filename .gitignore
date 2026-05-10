@@ -34,6 +34,7 @@ dist/
 
 # Memory files
 memory_*.md
+message_*.txt
 
 # Docker
 *.log
