@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime
 from pathlib import Path
 from ...core.database import get_db
 from ...core.deps import get_current_user, is_admin
@@ -8,7 +9,7 @@ from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
-from ...services.memory_service import get_domain_file, resolve_memory_file_path
+from ...services.memory_service import get_kv_file, get_digest_file, get_domain_file, resolve_memory_file_path
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -33,6 +34,12 @@ class MemoryResponse(BaseModel):
     total_duration_seconds: int
     memory_size: int
     last_processed_at: Optional[str]
+
+
+class MemoryUpdateRequest(BaseModel):
+    kv_content: Optional[str] = None
+    digest_content: Optional[str] = None
+    domain_content: Optional[str] = None
 
 
 def _read_text_file(path: Optional[str]) -> str:
@@ -63,6 +70,32 @@ def _calc_memory_size(kv_content: str, digest_content: str, domain_content: str 
     """记忆库容量 = 事实记忆层 + 行为摘要层 + 领域记忆层 的字符数"""
     return len(kv_content or "") + len(digest_content or "") + len(domain_content or "")
 
+
+def _ensure_memory_meta(db: Session, app_key: str) -> MemoryMeta:
+    memory_meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
+    if memory_meta:
+        return memory_meta
+    memory_meta = MemoryMeta(
+        app_key=app_key,
+        kv_file_path=str(resolve_memory_file_path(None, get_kv_file(app_key))),
+        digest_file_path=str(resolve_memory_file_path(None, get_digest_file(app_key))),
+        domain_file_path=str(resolve_memory_file_path(None, get_domain_file(app_key))),
+        last_processed_round=0,
+        total_duration_seconds=0,
+    )
+    db.add(memory_meta)
+    db.flush()
+    return memory_meta
+
+
+def _write_text_file(path: Optional[str], content: str) -> None:
+    resolved_path = resolve_memory_file_path(path)
+    if not resolved_path:
+        raise HTTPException(status_code=400, detail="Invalid memory file path")
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(resolved_path, "w", encoding="utf-8") as f:
+        f.write(content or "")
+
 @router.get("/memory/{app_key}", response_model=MemoryResponse)
 async def get_memory(
     app_key: str,
@@ -92,6 +125,46 @@ async def get_memory(
         total_duration_seconds=(memory_meta.total_duration_seconds if memory_meta else 0) or 0,
         memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
         last_processed_at=dt_to_local_str(memory_meta.last_updated) if memory_meta else None
+    )
+
+
+@router.put("/memory/{app_key}", response_model=MemoryResponse)
+async def update_memory(
+    app_key: str,
+    payload: MemoryUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if not is_admin(db, current_user) and tenant.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    memory_meta = _ensure_memory_meta(db, app_key)
+    if payload.kv_content is not None:
+        _write_text_file(memory_meta.kv_file_path, payload.kv_content)
+    if payload.digest_content is not None:
+        _write_text_file(memory_meta.digest_file_path, payload.digest_content)
+    if payload.domain_content is not None:
+        _write_text_file(_resolve_domain_path(memory_meta, app_key), payload.domain_content)
+
+    db.commit()
+
+    kv_content = _read_text_file(memory_meta.kv_file_path)
+    digest_content = _read_text_file(memory_meta.digest_file_path)
+    domain_content = _read_text_file(_resolve_domain_path(memory_meta, app_key))
+
+    return MemoryResponse(
+        app_key=app_key,
+        tenant_name=tenant.tenant_name,
+        kv_content=kv_content or None,
+        digest_content=digest_content or None,
+        domain_content=domain_content or None,
+        total_duration_seconds=memory_meta.total_duration_seconds or 0,
+        memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
+        last_processed_at=dt_to_local_str(memory_meta.last_updated)
     )
 
 @router.get("/memory", response_model=list[MemoryListResponse])
