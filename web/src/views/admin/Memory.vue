@@ -51,14 +51,6 @@
 
     <el-dialog v-model="detailVisible" title="记忆详情" width="900px">
       <div v-if="selectedMemory">
-        <div class="mb-4 flex justify-end gap-2">
-          <el-button :loading="detailLoading" @click="refreshMemoryDetail">
-            刷新
-          </el-button>
-          <el-button type="primary" :loading="savingMemory" @click="saveMemoryDetail">
-            保存修改
-          </el-button>
-        </div>
         <el-tabs v-model="activeTab">
           <el-tab-pane label="KV 事实记忆" name="kv">
             <el-input
@@ -92,6 +84,14 @@
           <span>对话总时长：<span class="text-slate-700 font-mono">{{ formatDuration(selectedMemory.total_duration_seconds) }}</span></span>
           <span>记忆库容量：<span class="text-slate-700 font-mono">{{ formatMemorySize(selectedMemory.memory_size) }}</span></span>
           <span>最后处理：<span class="text-slate-700 font-mono">{{ selectedMemory.last_processed_at || '未处理' }}</span></span>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <el-button :loading="detailLoading" @click="refreshMemoryDetail">
+            刷新
+          </el-button>
+          <el-button type="primary" :loading="savingMemory" @click="saveMemoryDetail">
+            保存修改
+          </el-button>
         </div>
       </div>
     </el-dialog>

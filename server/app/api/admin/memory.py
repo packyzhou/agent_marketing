@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from ...core.database import get_db
 from ...core.deps import get_current_user, is_admin
@@ -150,7 +150,9 @@ async def update_memory(
     if payload.domain_content is not None:
         _write_text_file(_resolve_domain_path(memory_meta, app_key), payload.domain_content)
 
+    memory_meta.last_updated = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
+    db.refresh(memory_meta)
 
     kv_content = _read_text_file(memory_meta.kv_file_path)
     digest_content = _read_text_file(memory_meta.digest_file_path)
