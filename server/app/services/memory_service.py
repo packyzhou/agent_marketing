@@ -5,6 +5,7 @@ from datetime import timezone
 from pathlib import Path
 from typing import Optional
 from sqlalchemy.orm import Session
+from ..core.threadpool import run_blocking
 from ..models.memory import MemoryMeta
 from ..models.conversation import Conversation
 
@@ -383,4 +384,4 @@ def schedule_memory_processing(app_key: str) -> None:
     Safe to call from both sync and async contexts as long as an event loop
     is already running (which is always true inside a FastAPI request handler).
     """
-    asyncio.create_task(_process_memory_with_ai(app_key))
+    asyncio.create_task(run_blocking(lambda: asyncio.run(_process_memory_with_ai(app_key))))

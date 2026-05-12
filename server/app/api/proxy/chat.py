@@ -4,10 +4,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import asyncio
 import re
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from ...core.database import get_db
+from ...core.database import SessionLocal
 from ...core.snowflake import generate_snowflake_id
+from ...core.threadpool import run_blocking
 from ...models.tenant import Tenant
 from ...models.provider import ProviderKey, Provider
 from ...models.conversation import Conversation
@@ -59,6 +62,29 @@ def _resolve_provider_context(db: Session, app_key: str):
     return provider_key, provider
 
 
+def _resolve_provider_context_blocking(app_key: str) -> dict:
+    db = SessionLocal()
+    try:
+        provider_key, provider = _resolve_provider_context(db, app_key)
+        return {
+            "provider_key_api_key": provider_key.api_key,
+            "provider_key_model_name": provider_key.model_name,
+            "provider_code": provider.code,
+            "provider_name": provider.name,
+            "provider_base_url": provider.base_url,
+        }
+    finally:
+        db.close()
+
+
+def _load_memory_blocking(app_key: str) -> str:
+    db = SessionLocal()
+    try:
+        return asyncio.run(load_memory(app_key, db=db))
+    finally:
+        db.close()
+
+
 def _build_openai_payload(body: dict) -> dict:
     if not isinstance(body, dict):
         return {}
@@ -95,6 +121,36 @@ def _save_llm_messages(app_key: str, messages: list) -> None:
         "messages": messages,
     }
     file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _persist_usage_blocking(
+    app_key: str,
+    user_message: str,
+    ai_response: str,
+    total_tokens: int,
+    provider_name: str,
+    model_name: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> None:
+    db = SessionLocal()
+    try:
+        asyncio.run(update_token_stats(db, app_key, total_tokens))
+        round_number = asyncio.run(_save_conversation(db, app_key, user_message, ai_response))
+        asyncio.run(
+            save_conversation_token_usage(
+                db=db,
+                app_key=app_key,
+                round_number=round_number,
+                provider_name=provider_name,
+                model_name=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+        )
+    finally:
+        db.close()
 
 
 async def _save_conversation(
@@ -187,10 +243,19 @@ def _normalize_text(value) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _log_llm_elapsed(app_key: str, provider_code: str, model: str, stream: bool, started_at: float, status: str) -> None:
+    elapsed_seconds = time.perf_counter() - started_at
+    print(
+        "LLM request elapsed | "
+        f"app_key:{app_key} | provider:{provider_code} | model:{model} | "
+        f"stream:{stream} | status:{status} | elapsed_seconds:{elapsed_seconds:.3f}"
+    )
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
-    provider_key, provider = _resolve_provider_context(db, app_key)
+    provider_context = await run_blocking(_resolve_provider_context_blocking, app_key)
     openai_payload = _build_openai_payload(body)
     messages = body.get("messages", [])
     print(f"用户输入messages：{messages}")
@@ -207,10 +272,15 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             user_messages.append(message)
     messages = user_messages
 
-    model = body.get("model") or provider_key.model_name or "qwen-plus"
+    provider_code = provider_context["provider_code"]
+    provider_name = provider_context["provider_name"]
+    provider_base_url = provider_context["provider_base_url"]
+    provider_api_key = provider_context["provider_key_api_key"]
+    provider_model_name = provider_context["provider_key_model_name"]
+    model = body.get("model") or provider_model_name or "qwen-plus"
     stream = force_stream or body.get("stream", False)
 
-    memory_context = await load_memory(app_key, db=db)
+    memory_context = await run_blocking(_load_memory_blocking, app_key)
     memory_context = (
         memory_context
         + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
@@ -224,9 +294,9 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     if system_content_parts:
         messages.insert(0, {"role": "system", "content": "\n\n".join(system_content_parts)})
     openai_payload["messages"] = messages
-    _save_llm_messages(app_key, messages)
+    await run_blocking(_save_llm_messages, app_key, messages)
     print(f"最终输入openai_payload-messages：{messages}")
-    llm_client = get_llm_client(provider.code, provider_key.api_key, provider.base_url)
+    llm_client = get_llm_client(provider_code, provider_api_key, provider_base_url)
     total_tokens = 0
     prompt_tokens = 0
     completion_tokens = 0
@@ -247,18 +317,17 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             total_tokens = prompt_tokens + completion_tokens
         if total_tokens <= 0:
             return
-        await update_token_stats(db, app_key, total_tokens)
         user_message = messages[-1].get("content", "") if messages else ""
-        round_number = await _save_conversation(db, app_key, user_message, ai_response)
-        await save_conversation_token_usage(
-            db=db,
-            app_key=app_key,
-            round_number=round_number,
-            provider_name=provider.name,
-            model_name=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
+        await run_blocking(
+            _persist_usage_blocking,
+            app_key,
+            user_message,
+            ai_response,
+            total_tokens,
+            provider_name,
+            model,
+            prompt_tokens,
+            completion_tokens,
         )
         schedule_memory_processing(app_key)
         persisted = True
@@ -266,6 +335,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     async def generate():
         nonlocal total_tokens, prompt_tokens, completion_tokens, ai_response
         prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
+        llm_started_at = time.perf_counter()
         try:
             async for chunk in llm_client.chat_completion(
                 messages, model, True, openai_payload
@@ -290,6 +360,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
                     ai_response += content
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
         except httpx.HTTPStatusError as e:
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "http_error")
             error_payload = {
                 "error": {
                     "type": "upstream_http_error",
@@ -302,16 +373,19 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
+        except asyncio.CancelledError:
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "cancelled")
+            await persist_usage()
+            raise
         except Exception as e:
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "error")
             await persist_usage()
             error_payload = {"error": {"type": "stream_error", "message": str(e)}}
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
-        except asyncio.CancelledError:
-            await persist_usage()
-            raise
 
+        _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "success")
         await persist_usage()
         yield "data: [DONE]\n\n"
 
@@ -319,12 +393,22 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     result = None
-    async for chunk in llm_client.chat_completion(
-        messages, model, False, openai_payload
-    ):
-        result = chunk
+    llm_started_at = time.perf_counter()
+    try:
+        async for chunk in llm_client.chat_completion(
+            messages, model, False, openai_payload
+        ):
+            result = chunk
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "success")
+    except httpx.HTTPStatusError:
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "http_error")
+        raise
+    except Exception:
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "error")
+        raise
 
     if result is None:
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "empty_response")
         raise HTTPException(
             status_code=502, detail="Upstream provider returned empty response"
         )
@@ -347,17 +431,16 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         )
     if total_tokens <= 0:
         total_tokens = prompt_tokens + completion_tokens
-    await update_token_stats(db, app_key, total_tokens)
-    round_number = await _save_conversation(db, app_key, user_message, ai_response)
-    await save_conversation_token_usage(
-        db=db,
-        app_key=app_key,
-        round_number=round_number,
-        provider_name=provider.name,
-        model_name=model,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=total_tokens,
+    await run_blocking(
+        _persist_usage_blocking,
+        app_key,
+        user_message,
+        ai_response,
+        total_tokens,
+        provider_name,
+        model,
+        prompt_tokens,
+        completion_tokens,
     )
     schedule_memory_processing(app_key)
     return result

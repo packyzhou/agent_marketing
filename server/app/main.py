@@ -12,6 +12,7 @@ from .core.database import engine, Base, SessionLocal
 from .models.user import User, UserRole, Role, RoleType
 from .models.provider import Provider
 from .models.system_prompt import SystemPrompt  # noqa: F401 – registers table with Base
+from .services.llm_base import close_openai_clients
 
 Base.metadata.create_all(bind=engine)
 
@@ -211,6 +212,10 @@ app.include_router(stats_router, prefix="/api/user", tags=["stats"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(proxy_router, prefix="/api/proxy", tags=["proxy"])
 app.include_router(proxy_router, tags=["openai"])
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_openai_clients()
 
 @app.get("/")
 async def root():

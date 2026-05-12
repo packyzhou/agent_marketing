@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import threading
 from typing import Dict, Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -32,6 +33,20 @@ _OPENAI_KNOWN_PARAMS = frozenset(
 
 # Keys managed explicitly by chat_completion(); strip from extra_body
 _RESERVED_KEYS = frozenset({"model", "messages", "stream", "stream_options", "app_key"})
+_OPENAI_CLIENTS: dict[tuple[str, str], AsyncOpenAI] = {}
+_OPENAI_CLIENTS_LOCK = threading.Lock()
+
+
+async def close_openai_clients() -> None:
+    with _OPENAI_CLIENTS_LOCK:
+        clients = list(_OPENAI_CLIENTS.values())
+        _OPENAI_CLIENTS.clear()
+    for client in clients:
+        try:
+            await client.close()
+        except RuntimeError as e:
+            if "handler is closed" not in str(e):
+                raise
 
 
 def _split_extra_body(extra_body: dict | None) -> tuple[dict, dict]:
@@ -67,12 +82,21 @@ class BaseLLM(ABC):
 class OpenAICompatibleLLM(BaseLLM):
     """OpenAI-SDK-based implementation for any OpenAI-compatible endpoint."""
 
-    def _create_client(self) -> AsyncOpenAI:
-        print(f"Creating client with api_key: {self.api_key}, base_url: {self.base_url}")
-        return AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+    def _get_client(self) -> AsyncOpenAI:
+        cache_key = (self.api_key or "", self.base_url or "")
+        client = _OPENAI_CLIENTS.get(cache_key)
+        if client is not None:
+            return client
+        with _OPENAI_CLIENTS_LOCK:
+            client = _OPENAI_CLIENTS.get(cache_key)
+            if client is None:
+                print(f"Creating client with api_key: {self.api_key}, base_url: {self.base_url}")
+                client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                )
+                _OPENAI_CLIENTS[cache_key] = client
+            return client
 
     async def chat_completion(
         self,
@@ -81,7 +105,7 @@ class OpenAICompatibleLLM(BaseLLM):
         stream: bool = False,
         extra_body: Dict[str, Any] | None = None,
     ):
-        client = self._create_client()
+        client = self._get_client()
         known_kwargs, vendor_extra = _split_extra_body(extra_body)
 
         if stream:
