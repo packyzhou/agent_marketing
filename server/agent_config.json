@@ -7,9 +7,9 @@
     "database": "ai_agent_platform"
   },
   "memory_processing": {
-    "rounds_threshold": 5,
+    "rounds_threshold": 3,
     "enable_auto_processing": true,
-    "digest_rounds": 5,
+    "digest_rounds": 3,
     "prompt_type": "menmory_unit"
   },
   "system_llm": {
