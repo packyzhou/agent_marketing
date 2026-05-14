@@ -32,7 +32,7 @@ _OPENAI_KNOWN_PARAMS = frozenset(
 )
 
 # Keys managed explicitly by chat_completion(); strip from extra_body
-_RESERVED_KEYS = frozenset({"model", "messages", "stream", "stream_options", "app_key"})
+_RESERVED_KEYS = frozenset({"model", "messages", "stream", "stream_options", "app_key", "debug"})
 _OPENAI_CLIENTS: dict[tuple[str, str], AsyncOpenAI] = {}
 _OPENAI_CLIENTS_LOCK = threading.Lock()
 

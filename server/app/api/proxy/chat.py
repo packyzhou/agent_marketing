@@ -90,7 +90,27 @@ def _build_openai_payload(body: dict) -> dict:
         return {}
     payload = dict(body)
     payload.pop("app_key", None)
+    payload.pop("debug", None)
     return payload
+
+
+def _is_debug_mode(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
+
+
+def _resolve_request_model(body: dict, provider_model_name: str | None) -> str:
+    body_model = (body.get("model") or "").strip()
+    configured_model = (provider_model_name or "").strip()
+    debug = _is_debug_mode(body.get("debug"))
+    if debug:
+        return body_model or configured_model or "qwen-plus"
+    if not configured_model:
+        raise HTTPException(status_code=400, detail="No model configured")
+    return configured_model
 
 
 def _safe_filename_part(value: str) -> str:
@@ -277,8 +297,9 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     provider_base_url = provider_context["provider_base_url"]
     provider_api_key = provider_context["provider_key_api_key"]
     provider_model_name = provider_context["provider_key_model_name"]
-    model = body.get("model") or provider_model_name or "qwen-plus"
+    model = _resolve_request_model(body, provider_model_name)
     stream = force_stream or body.get("stream", False)
+    openai_payload["model"] = model
 
     memory_context = await run_blocking(_load_memory_blocking, app_key)
     memory_context = (
