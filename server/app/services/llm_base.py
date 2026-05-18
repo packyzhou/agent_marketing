@@ -6,6 +6,9 @@ from openai import AsyncOpenAI
 import openai
 
 
+LLM_REQUEST_TIMEOUT_SECONDS = 300
+
+
 # OpenAI SDK chat.completions.create() accepted keyword params
 _OPENAI_KNOWN_PARAMS = frozenset(
     {
@@ -94,6 +97,7 @@ class OpenAICompatibleLLM(BaseLLM):
                 client = AsyncOpenAI(
                     api_key=self.api_key,
                     base_url=self.base_url,
+                    timeout=LLM_REQUEST_TIMEOUT_SECONDS,
                 )
                 _OPENAI_CLIENTS[cache_key] = client
             return client

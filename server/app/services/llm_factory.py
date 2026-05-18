@@ -4,7 +4,7 @@ from typing import Any, AsyncIterator, Dict
 import aiohttp
 from openai import AsyncOpenAI
 
-from .llm_base import BaseLLM, OpenAICompatibleLLM, QwenLLM
+from .llm_base import BaseLLM, LLM_REQUEST_TIMEOUT_SECONDS, OpenAICompatibleLLM, QwenLLM
 
 
 class DoubaoLLM(OpenAICompatibleLLM):
@@ -56,7 +56,12 @@ class OllamaLLM(BaseLLM):
         payload = {"model": model, "prompt": prompt, "stream": stream}
         print(f"----ollama url:{url} | model:{model}----")
 
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(
+            total=LLM_REQUEST_TIMEOUT_SECONDS,
+            sock_connect=LLM_REQUEST_TIMEOUT_SECONDS,
+            sock_read=LLM_REQUEST_TIMEOUT_SECONDS,
+        )
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=payload) as resp:
                 if stream:
                     accumulated = ""

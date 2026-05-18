@@ -19,6 +19,7 @@ from ...services.token_service import update_token_stats, save_conversation_toke
 from ...services.memory_service import load_memory, schedule_memory_processing
 import json
 import httpx
+import openai
 
 router = APIRouter()
 MESSAGE_DIR = Path("./message")
@@ -272,6 +273,22 @@ def _log_llm_elapsed(app_key: str, provider_code: str, model: str, stream: bool,
     )
 
 
+def _is_llm_timeout_error(error: Exception) -> bool:
+    return isinstance(
+        error,
+        (
+            asyncio.TimeoutError,
+            TimeoutError,
+            httpx.TimeoutException,
+            openai.APITimeoutError,
+        ),
+    )
+
+
+def _llm_timeout_message() -> str:
+    return "LLM request timed out after 300 seconds"
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
@@ -399,6 +416,18 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             await persist_usage()
             raise
         except Exception as e:
+            if _is_llm_timeout_error(e):
+                _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "timeout")
+                error_payload = {
+                    "error": {
+                        "type": "upstream_timeout",
+                        "status_code": 504,
+                        "message": _llm_timeout_message(),
+                    }
+                }
+                yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
             _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "error")
             await persist_usage()
             error_payload = {"error": {"type": "stream_error", "message": str(e)}}
@@ -424,7 +453,10 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     except httpx.HTTPStatusError:
         _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "http_error")
         raise
-    except Exception:
+    except Exception as e:
+        if _is_llm_timeout_error(e):
+            _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "timeout")
+            raise HTTPException(status_code=504, detail=_llm_timeout_message()) from e
         _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "error")
         raise
 
