@@ -38,3 +38,4 @@ message_*.txt
 
 # Docker
 *.log
+agent_config.json
