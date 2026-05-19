@@ -134,13 +134,6 @@ async def load_memory(app_key: str, db: Optional[Session] = None) -> str:
     temp_text = _load_temporary_memory(db, app_key) if db is not None else ""
     if temp_text:
         parts.append(f"## 临时对话记忆\n{temp_text}")
-    print(
-        f"------------------------------------记忆1--------------------------------------------"
-    )
-    print("\n".join(parts))
-    print(
-        f"------------------------------------记忆2--------------------------------------------"
-    )
     return "\n\n".join(parts)
 
 

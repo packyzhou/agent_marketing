@@ -92,7 +92,19 @@ def _build_openai_payload(body: dict) -> dict:
     payload = dict(body)
     payload.pop("app_key", None)
     payload.pop("debug", None)
+    payload.pop("use_memory", None)
     return payload
+
+
+def _resolve_use_memory(body: dict) -> bool:
+    if not isinstance(body, dict):
+        return True
+    value = body.get("use_memory", True)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() != "false"
+    return bool(value)
 
 
 def _is_debug_mode(value) -> bool:
@@ -295,7 +307,6 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     provider_context = await run_blocking(_resolve_provider_context_blocking, app_key)
     openai_payload = _build_openai_payload(body)
     messages = body.get("messages", [])
-    print(f"用户输入messages：{messages}")
     if not isinstance(messages, list) or len(messages) == 0:
         raise HTTPException(status_code=400, detail="messages is required")
     system_contexts = []
@@ -317,14 +328,19 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     model = _resolve_request_model(body, provider_model_name)
     stream = force_stream or body.get("stream", False)
     openai_payload["model"] = model
-
-    memory_context = await run_blocking(_load_memory_blocking, app_key)
-    memory_context = (
-        memory_context
-        + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
-        if memory_context
-        else None
-    )
+    use_memory = _resolve_use_memory(body)
+    if use_memory:
+        print(f"用户[{app_key}] - 输入use_memory：{use_memory} ")
+        memory_context = await run_blocking(_load_memory_blocking, app_key)
+        print(f"用户[{app_key}] - 加载到的memory_context：{len(memory_context) if memory_context else 0} ")
+        memory_context = (
+            memory_context
+            + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
+            if memory_context
+            else None
+        )
+    else:
+        memory_context = None
     system_content_parts = []
     if memory_context:
         system_content_parts.append(memory_context)
