@@ -165,23 +165,25 @@ def _persist_usage_blocking(
     model_name: str,
     prompt_tokens: int,
     completion_tokens: int,
+    save_conversation: bool = True,
 ) -> None:
     db = SessionLocal()
     try:
         asyncio.run(update_token_stats(db, app_key, total_tokens))
-        round_number = asyncio.run(_save_conversation(db, app_key, user_message, ai_response))
-        asyncio.run(
-            save_conversation_token_usage(
-                db=db,
-                app_key=app_key,
-                round_number=round_number,
-                provider_name=provider_name,
-                model_name=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
+        if save_conversation:
+            round_number = asyncio.run(_save_conversation(db, app_key, user_message, ai_response))
+            asyncio.run(
+                save_conversation_token_usage(
+                    db=db,
+                    app_key=app_key,
+                    round_number=round_number,
+                    provider_name=provider_name,
+                    model_name=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
             )
-        )
     finally:
         db.close()
 
@@ -332,7 +334,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     if use_memory:
         print(f"用户[{app_key}] - 输入use_memory：{use_memory} ")
         memory_context = await run_blocking(_load_memory_blocking, app_key)
-        print(f"用户[{app_key}] - 加载到的memory_context：{len(memory_context) if memory_context else 0} ")
+        # print(f"用户[{app_key}] - 加载到的memory_context：{len(memory_context) if memory_context else 0} ")
         memory_context = (
             memory_context
             + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
@@ -382,8 +384,10 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             model,
             prompt_tokens,
             completion_tokens,
+            use_memory,
         )
-        schedule_memory_processing(app_key)
+        if use_memory:
+            schedule_memory_processing(app_key)
         persisted = True
 
     async def generate():
@@ -510,8 +514,10 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         model,
         prompt_tokens,
         completion_tokens,
+        use_memory,
     )
-    schedule_memory_processing(app_key)
+    if use_memory:
+        schedule_memory_processing(app_key)
     return result
 
 
