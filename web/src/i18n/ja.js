@@ -16,6 +16,7 @@ export default {
     hirePrice: '雇用価格',
     memory: 'メモリ',
     duration: '期間',
+    earnings: '収益',
     hires: '回雇用'
   },
   footer: {
@@ -143,6 +144,7 @@ export default {
       providers: 'プロバイダー管理',
       tokens: 'トークン統計',
       memory: 'メモリ閲覧',
+      earnings: '収益',
       systemPrompts: 'プロンプト管理',
       chatDebug: 'チャットデバッグ'
     }

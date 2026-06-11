@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -9,7 +10,7 @@ from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
-from ...services.memory_service import get_kv_file, get_digest_file, get_domain_file, resolve_memory_file_path
+from ...services.memory_service import get_kv_file, get_digest_file, get_domain_file, get_earnings_file, resolve_memory_file_path
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -24,6 +25,7 @@ class MemoryListResponse(BaseModel):
     has_kv_file: bool
     has_digest_file: bool
     has_domain_file: bool
+    has_earnings_file: bool
 
 class MemoryResponse(BaseModel):
     app_key: str
@@ -31,6 +33,7 @@ class MemoryResponse(BaseModel):
     kv_content: Optional[str]
     digest_content: Optional[str]
     domain_content: Optional[str]
+    earnings_content: Optional[str]
     total_duration_seconds: int
     memory_size: int
     last_processed_at: Optional[str]
@@ -40,6 +43,16 @@ class MemoryUpdateRequest(BaseModel):
     kv_content: Optional[str] = None
     digest_content: Optional[str] = None
     domain_content: Optional[str] = None
+    earnings_content: Optional[str] = None
+
+
+class EarningsItemResponse(BaseModel):
+    app_key: str
+    tenant_name: Optional[str]
+    username: Optional[str]
+    earnings_content: str
+    earnings_items: list[dict]
+    total_earnings: float
 
 
 def _read_text_file(path: Optional[str]) -> str:
@@ -61,9 +74,69 @@ def _resolve_domain_path(mem: Optional[MemoryMeta], app_key: str) -> str:
     return str(resolved_path) if resolved_path else ""
 
 
+def _resolve_earnings_path(app_key: str) -> str:
+    return str(get_earnings_file(app_key))
+
+
 def _memory_file_exists(path: Optional[str]) -> bool:
     resolved_path = resolve_memory_file_path(path)
     return bool(resolved_path and resolved_path.exists())
+
+
+def _parse_earnings(content: str) -> tuple[list[dict], float]:
+    text = (content or "").strip()
+    if not text:
+        return [], 0.0
+    items = []
+    def to_amount(value) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        cleaned = str(value or "").strip().replace(",", "").replace("$", "").replace("¥", "")
+        return float(cleaned or 0)
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            source = data.get("items") or data.get("earnings") or data
+            if isinstance(source, dict):
+                for key, value in source.items():
+                    if isinstance(value, dict):
+                        amount = value.get("amount", value.get("value", value.get("earnings", 0)))
+                        label = value.get("label", value.get("name", key))
+                    else:
+                        amount = value
+                        label = key
+                    items.append({"label": str(label), "amount": to_amount(amount)})
+            elif isinstance(source, list):
+                for index, value in enumerate(source, start=1):
+                    if isinstance(value, dict):
+                        label = value.get("label", value.get("name", value.get("type", f"收益{index}")))
+                        amount = value.get("amount", value.get("value", value.get("earnings", 0)))
+                    else:
+                        label = f"收益{index}"
+                        amount = value
+                    items.append({"label": str(label), "amount": to_amount(amount)})
+        elif isinstance(data, list):
+            for index, value in enumerate(data, start=1):
+                if isinstance(value, dict):
+                    label = value.get("label", value.get("name", value.get("type", f"收益{index}")))
+                    amount = value.get("amount", value.get("value", value.get("earnings", 0)))
+                else:
+                    label = f"收益{index}"
+                    amount = value
+                items.append({"label": str(label), "amount": to_amount(amount)})
+    except Exception:
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            parts = line.replace("：", ":").rsplit(":", 1)
+            if len(parts) != 2:
+                continue
+            try:
+                items.append({"label": parts[0].strip(), "amount": to_amount(parts[1])})
+            except ValueError:
+                continue
+    total = sum(item["amount"] for item in items)
+    return items, total
 
 
 def _calc_memory_size(kv_content: str, digest_content: str, domain_content: str = "") -> int:
@@ -115,6 +188,7 @@ async def get_memory(
     kv_content = _read_text_file(memory_meta.kv_file_path) if memory_meta else ""
     digest_content = _read_text_file(memory_meta.digest_file_path) if memory_meta else ""
     domain_content = _read_text_file(_resolve_domain_path(memory_meta, app_key))
+    earnings_content = _read_text_file(_resolve_earnings_path(app_key))
 
     return MemoryResponse(
         app_key=app_key,
@@ -122,6 +196,7 @@ async def get_memory(
         kv_content=kv_content or None,
         digest_content=digest_content or None,
         domain_content=domain_content or None,
+        earnings_content=earnings_content or None,
         total_duration_seconds=(memory_meta.total_duration_seconds if memory_meta else 0) or 0,
         memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
         last_processed_at=dt_to_local_str(memory_meta.last_updated) if memory_meta else None
@@ -149,6 +224,8 @@ async def update_memory(
         _write_text_file(memory_meta.digest_file_path, payload.digest_content)
     if payload.domain_content is not None:
         _write_text_file(_resolve_domain_path(memory_meta, app_key), payload.domain_content)
+    if payload.earnings_content is not None:
+        _write_text_file(_resolve_earnings_path(app_key), payload.earnings_content)
 
     memory_meta.last_updated = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
@@ -157,6 +234,7 @@ async def update_memory(
     kv_content = _read_text_file(memory_meta.kv_file_path)
     digest_content = _read_text_file(memory_meta.digest_file_path)
     domain_content = _read_text_file(_resolve_domain_path(memory_meta, app_key))
+    earnings_content = _read_text_file(_resolve_earnings_path(app_key))
 
     return MemoryResponse(
         app_key=app_key,
@@ -164,6 +242,7 @@ async def update_memory(
         kv_content=kv_content or None,
         digest_content=digest_content or None,
         domain_content=domain_content or None,
+        earnings_content=earnings_content or None,
         total_duration_seconds=memory_meta.total_duration_seconds or 0,
         memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
         last_processed_at=dt_to_local_str(memory_meta.last_updated)
@@ -206,6 +285,7 @@ async def list_all_memory(
         digest_content = _read_text_file(mem.digest_file_path) if mem else ""
         domain_path = _resolve_domain_path(mem, tenant.app_key)
         domain_content = _read_text_file(domain_path)
+        earnings_path = _resolve_earnings_path(tenant.app_key)
         result.append(
             MemoryListResponse(
                 app_key=tenant.app_key,
@@ -216,7 +296,65 @@ async def list_all_memory(
                 last_processed_at=dt_to_local_str(mem.last_updated) if mem else None,
                 has_kv_file=bool(mem and _memory_file_exists(mem.kv_file_path)),
                 has_digest_file=bool(mem and _memory_file_exists(mem.digest_file_path)),
-                has_domain_file=bool(domain_path and Path(domain_path).exists())
+                has_domain_file=bool(domain_path and Path(domain_path).exists()),
+                has_earnings_file=bool(earnings_path and Path(earnings_path).exists())
+            )
+        )
+    return result
+
+
+@router.get("/earnings", response_model=list[EarningsItemResponse])
+async def list_earnings(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    tenant_query = db.query(Tenant)
+    if current_user and not is_admin(db, current_user):
+        tenant_query = tenant_query.filter(Tenant.user_id == current_user.id)
+    tenants = tenant_query.order_by(Tenant.created_at.desc()).offset(skip).limit(limit).all()
+    owner_ids = {t.user_id for t in tenants if t.user_id is not None}
+    user_map = {}
+    if owner_ids:
+        users = db.query(User).filter(User.id.in_(owner_ids)).all()
+        user_map = {u.id: u.username for u in users}
+    result = []
+    for tenant in tenants:
+        content = _read_text_file(_resolve_earnings_path(tenant.app_key))
+        items, total = _parse_earnings(content)
+        result.append(
+            EarningsItemResponse(
+                app_key=tenant.app_key,
+                tenant_name=tenant.tenant_name,
+                username=user_map.get(tenant.user_id),
+                earnings_content=content,
+                earnings_items=items,
+                total_earnings=total
+            )
+        )
+    return result
+
+
+@router.get("/public/earnings", response_model=list[EarningsItemResponse])
+async def list_public_earnings(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    tenants = db.query(Tenant).order_by(Tenant.created_at.desc()).offset(skip).limit(limit).all()
+    result = []
+    for tenant in tenants:
+        content = _read_text_file(_resolve_earnings_path(tenant.app_key))
+        items, total = _parse_earnings(content)
+        result.append(
+            EarningsItemResponse(
+                app_key=tenant.app_key,
+                tenant_name=tenant.tenant_name,
+                username=None,
+                earnings_content="",
+                earnings_items=[],
+                total_earnings=total
             )
         )
     return result
@@ -240,6 +378,7 @@ async def clear_memory_files(
     cleared_kv = False
     cleared_digest = False
     cleared_domain = False
+    cleared_earnings = False
 
     kv_path = resolve_memory_file_path(memory_meta.kv_file_path)
     if kv_path and kv_path.exists():
@@ -259,6 +398,12 @@ async def clear_memory_files(
             f.write("")
         cleared_domain = True
 
+    earnings_path = _resolve_earnings_path(app_key)
+    if earnings_path and Path(earnings_path).exists():
+        with open(earnings_path, "w", encoding="utf-8") as f:
+            f.write("")
+        cleared_earnings = True
+
     memory_meta.last_processed_round = 0
     memory_meta.total_duration_seconds = 0
     db.commit()
@@ -267,5 +412,6 @@ async def clear_memory_files(
         "app_key": app_key,
         "cleared_kv": cleared_kv,
         "cleared_digest": cleared_digest,
-        "cleared_domain": cleared_domain
+        "cleared_domain": cleared_domain,
+        "cleared_earnings": cleared_earnings
     }

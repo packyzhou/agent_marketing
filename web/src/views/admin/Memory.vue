@@ -24,6 +24,7 @@
           <el-tag v-if="row.has_kv_file" type="success" size="small">KV</el-tag>
           <el-tag v-if="row.has_digest_file" type="primary" size="small" class="ml-1">Digest</el-tag>
           <el-tag v-if="row.has_domain_file" type="warning" size="small" class="ml-1">Domain</el-tag>
+          <el-tag v-if="row.has_earnings_file" type="danger" size="small" class="ml-1">收益</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="240">
@@ -79,6 +80,15 @@
               placeholder="暂无领域记忆"
             />
           </el-tab-pane>
+          <el-tab-pane label="收益" name="earnings">
+            <el-input
+              v-model="memoryForm.earnings_content"
+              type="textarea"
+              :rows="18"
+              resize="vertical"
+              placeholder="暂无收益"
+            />
+          </el-tab-pane>
         </el-tabs>
         <div class="mt-4 flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
           <span>对话总时长：<span class="text-slate-700 font-mono">{{ formatDuration(selectedMemory.total_duration_seconds) }}</span></span>
@@ -114,14 +124,16 @@ const savingMemory = ref(false)
 const memoryForm = ref({
   kv_content: '',
   digest_content: '',
-  domain_content: ''
+  domain_content: '',
+  earnings_content: ''
 })
 
 const syncMemoryForm = (memory) => {
   memoryForm.value = {
     kv_content: memory?.kv_content || '',
     digest_content: memory?.digest_content || '',
-    domain_content: memory?.domain_content || ''
+    domain_content: memory?.domain_content || '',
+    earnings_content: memory?.earnings_content || ''
   }
 }
 
@@ -188,7 +200,8 @@ const saveMemoryDetail = async () => {
     await api.put(`/admin/memory/${selectedMemory.value.app_key}`, {
       kv_content: memoryForm.value.kv_content,
       digest_content: memoryForm.value.digest_content,
-      domain_content: memoryForm.value.domain_content
+      domain_content: memoryForm.value.domain_content,
+      earnings_content: memoryForm.value.earnings_content
     })
     selectedMemory.value = await api.get(`/admin/memory/${selectedMemory.value.app_key}`)
     syncMemoryForm(selectedMemory.value)
@@ -218,6 +231,7 @@ const clearMemory = async (memory) => {
       selectedMemory.value.kv_content = ''
       selectedMemory.value.digest_content = ''
       selectedMemory.value.domain_content = ''
+      selectedMemory.value.earnings_content = ''
       selectedMemory.value.total_duration_seconds = 0
       selectedMemory.value.memory_size = 0
       syncMemoryForm(selectedMemory.value)

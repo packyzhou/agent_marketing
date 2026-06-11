@@ -51,7 +51,7 @@
     <!-- Agent List -->
     <main id="agents" class="max-w-7xl mx-auto px-6 pb-32">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div v-for="agent in agents" :key="agent.name"
+        <div v-for="agent in agents" :key="agent.appKey"
           class="group relative bg-white border border-slate-100 rounded-[2.5rem] p-8 hover:border-transparent hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] transition-all duration-700 flex flex-col">
           <div class="flex justify-between items-start mb-8">
             <div class="relative">
@@ -99,9 +99,9 @@
             <div class="bg-slate-50/50 rounded-2xl p-4 border border-transparent group-hover:border-slate-100 transition-colors">
               <div class="flex items-center text-slate-400 mb-1">
                 <Clock class="w-3 h-3 mr-1.5" />
-                <span class="text-[9px] font-bold uppercase tracking-widest">{{ $t('home.duration') }}</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest">{{ $t('home.earnings') }}</span>
               </div>
-              <span class="text-sm font-black font-mono">{{ agent.duration }}</span>
+              <span class="text-sm font-black font-mono" :class="Number(agent.totalEarnings) > 0 ? 'text-rose-600' : Number(agent.totalEarnings) < 0 ? 'text-emerald-600' : 'text-slate-950'">{{ formatCurrency(agent.totalEarnings || 0) }}</span>
             </div>
           </div>
 
@@ -165,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import {
   Play,
   ChevronRight,
@@ -177,6 +177,7 @@ import {
 } from 'lucide-vue-next'
 import LangSwitcher from '../components/LangSwitcher.vue'
 import PaymentModal from '../components/PaymentModal.vue'
+import api from '../api/request'
 
 const paymentVisible = ref(false)
 const paymentAgent   = ref(null)
@@ -186,47 +187,69 @@ function openPayment(agent) {
   paymentVisible.value = true
 }
 
-const agents = ref([
-  {
-    name: 'Anna',
-    age: 28,
-    title: 'Senior Product Designer',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200&h=200',
-    rating: '4.9',
-    hires: '1.8k',
-    companies: ['Apple', 'Airbnb', 'Stripe'],
-    description: '10年设计经验沉淀，精通多维视觉语言与用户行为逻辑。其智能体完整保留了她的审美判断力。',
-    memory: '2.1 TB',
-    duration: '12 Days',
-    price: 129
-  },
-  {
-    name: 'Ben',
-    age: 32,
-    title: 'Full-Stack Engineer',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200&h=200',
-    rating: '5.0',
-    hires: '3.2k',
-    companies: ['Google', 'DeepMind', 'Vercel'],
-    description: '专注于高性能分布式架构与底层算法优化。其智能体具备解决复杂工程难题的逻辑思维路径。',
-    memory: '3.5 TB',
-    duration: '18 Days',
-    price: 159
-  },
-  {
-    name: 'Chloe',
-    age: 26,
-    title: 'Data Strategist',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200&h=200',
-    rating: '4.8',
-    hires: '950',
-    companies: ['Palantir', 'Meta', 'Snowflake'],
-    description: '擅长从海量非结构化数据中提取商业洞察。其智能体能够快速进行行业趋势预测与建模。',
-    memory: '2.8 TB',
-    duration: '15 Days',
-    price: 99
+const TITLES = [
+  'Senior Product Designer','Full-Stack Engineer','Data Strategist','ML Research Scientist',
+  'DevOps Architect','UX Researcher','Blockchain Developer','AI Product Manager'
+]
+const COMPANY_SETS = [
+  ['Apple','Airbnb','Stripe'],['Google','DeepMind','Vercel'],['Palantir','Meta','Snowflake'],
+  ['OpenAI','Anthropic','Cohere'],['Amazon','Netflix','Uber'],['Microsoft','GitHub','LinkedIn']
+]
+const DESCRIPTIONS = [
+  '专注于高性能分布式架构与底层算法优化，其智能体具备解决复杂工程难题的逻辑思维路径。',
+  '10年设计经验沉淀，精通多维视觉语言与用户行为逻辑，其智能体完整保留了审美判断力。',
+  '擅长从海量非结构化数据中提取商业洞察，能够快速进行行业趋势预测与建模分析。',
+  '深耕机器学习前沿领域，擅长大模型设计与大规模训练优化，推动AI工程化落地。',
+  '构建云原生基础设施，保障系统高可用性与弹性扩展，主导多次大规模系统重构。',
+  '连接技术与商业战略，推动AI产品从研发到市场的全流程高效落地与商业化。'
+]
+const MEMORY_SIZES = ['0.8 TB','1.2 TB','1.8 TB','2.1 TB','2.8 TB','3.5 TB','4.1 TB','4.8 TB']
+const DURATIONS = ['7 Days','10 Days','12 Days','15 Days','18 Days','21 Days','30 Days']
+const PRICES = [49,69,89,99,109,129,149,159,179,199]
+
+const fallbackRows = [
+  { app_key: 'Anna', tenant_name: 'Anna', total_earnings: 0 },
+  { app_key: 'Ben', tenant_name: 'Ben', total_earnings: 0 },
+  { app_key: 'Chloe', tenant_name: 'Chloe', total_earnings: 0 }
+]
+
+const agents = ref([])
+
+const generateAgent = (row, index) => {
+  const name = row.tenant_name || `Agent ${index + 1}`
+  return {
+    name,
+    appKey: row.app_key,
+    age: 24 + (index * 7 % 16),
+    title: TITLES[index % TITLES.length],
+    avatar: `https://i.pravatar.cc/200?img=${(index % 70) + 1}`,
+    rating: (4.0 + (index * 13 % 10) / 10).toFixed(1),
+    hires: index % 3 === 0 ? '1.8k' : index % 3 === 1 ? '3.2k' : '950',
+    companies: COMPANY_SETS[index % COMPANY_SETS.length],
+    description: DESCRIPTIONS[index % DESCRIPTIONS.length],
+    memory: MEMORY_SIZES[index % MEMORY_SIZES.length],
+    duration: DURATIONS[index % DURATIONS.length],
+    price: PRICES[index % PRICES.length],
+    totalEarnings: Number(row.total_earnings) || 0
   }
-])
+}
+
+const formatCurrency = (value) => {
+  const n = Number(value) || 0
+  const sign = n < 0 ? '-' : ''
+  return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const loadAgents = async () => {
+  try {
+    const rows = await api.get('/admin/public/earnings')
+    agents.value = (rows?.length ? rows : fallbackRows).map(generateAgent)
+  } catch (error) {
+    agents.value = fallbackRows.map(generateAgent)
+  }
+}
+
+onMounted(loadAgents)
 </script>
 
 <style scoped>

@@ -16,6 +16,7 @@ export default {
     hirePrice: 'Hire Price',
     memory: 'Memory',
     duration: 'Duration',
+    earnings: 'Earnings',
     hires: 'Hires'
   },
   footer: {
@@ -143,6 +144,7 @@ export default {
       providers: 'Providers',
       tokens: 'Tokens',
       memory: 'Memory',
+      earnings: 'Earnings',
       systemPrompts: 'Prompts',
       chatDebug: 'Chat Debug'
     }

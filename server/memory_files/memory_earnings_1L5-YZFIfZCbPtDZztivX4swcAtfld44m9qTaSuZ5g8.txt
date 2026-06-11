@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "label": "英伟达",
+      "amount": 0.0
+    },
+    {
+      "label": "VRT",
+      "amount": 0.0
+    },
+    {
+      "label": "RDW",
+      "amount": 0.0
+    },
+    {
+      "label": "BB",
+      "amount": -18.7
+    },
+    {
+      "label": "NVTS",
+      "amount": -93.5
+    },
+    {
+      "label": "CRWV",
+      "amount": 0.0
+    },
+    {
+      "label": "GLW",
+      "amount": -5.0
+    }
+  ],
+  "total_earnings": -117.2
+}

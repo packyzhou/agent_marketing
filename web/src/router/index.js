@@ -77,6 +77,11 @@ const routes = [
         component: () => import('../views/admin/Memory.vue')
       },
       {
+        path: 'earnings',
+        name: 'AdminEarnings',
+        component: () => import('../views/admin/Earnings.vue')
+      },
+      {
         path: 'system-prompts',
         name: 'AdminSystemPrompts',
         meta: { adminOnly: true },
