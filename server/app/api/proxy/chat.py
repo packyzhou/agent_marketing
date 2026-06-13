@@ -3,8 +3,14 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import asyncio
+import re
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
 from ...core.database import get_db
+from ...core.database import SessionLocal
 from ...core.snowflake import generate_snowflake_id
+from ...core.threadpool import run_blocking
 from ...models.tenant import Tenant
 from ...models.provider import ProviderKey, Provider
 from ...models.conversation import Conversation
@@ -13,8 +19,11 @@ from ...services.token_service import update_token_stats, save_conversation_toke
 from ...services.memory_service import load_memory, schedule_memory_processing
 import json
 import httpx
+import openai
 
 router = APIRouter()
+MESSAGE_DIR = Path("./message")
+MESSAGE_RETENTION_DAYS = 7
 
 
 def _resolve_app_key(request: Request, body: dict) -> str:
@@ -54,12 +63,129 @@ def _resolve_provider_context(db: Session, app_key: str):
     return provider_key, provider
 
 
+def _resolve_provider_context_blocking(app_key: str) -> dict:
+    db = SessionLocal()
+    try:
+        provider_key, provider = _resolve_provider_context(db, app_key)
+        return {
+            "provider_key_api_key": provider_key.api_key,
+            "provider_key_model_name": provider_key.model_name,
+            "provider_code": provider.code,
+            "provider_name": provider.name,
+            "provider_base_url": provider.base_url,
+        }
+    finally:
+        db.close()
+
+
+def _load_memory_blocking(app_key: str) -> str:
+    db = SessionLocal()
+    try:
+        return asyncio.run(load_memory(app_key, db=db))
+    finally:
+        db.close()
+
+
 def _build_openai_payload(body: dict) -> dict:
     if not isinstance(body, dict):
         return {}
     payload = dict(body)
     payload.pop("app_key", None)
+    payload.pop("debug", None)
+    payload.pop("use_memory", None)
     return payload
+
+
+def _resolve_use_memory(body: dict) -> bool:
+    if not isinstance(body, dict):
+        return True
+    value = body.get("use_memory", True)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() != "false"
+    return bool(value)
+
+
+def _is_debug_mode(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
+
+
+def _resolve_request_model(body: dict, provider_model_name: str | None) -> str:
+    body_model = (body.get("model") or "").strip()
+    configured_model = (provider_model_name or "").strip()
+    debug = _is_debug_mode(body.get("debug"))
+    if debug:
+        return body_model or configured_model or "qwen-plus"
+    if not configured_model:
+        raise HTTPException(status_code=400, detail="No model configured")
+    return configured_model
+
+
+def _safe_filename_part(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", value)
+
+
+def _cleanup_old_message_files(now: datetime) -> None:
+    cutoff = now.date() - timedelta(days=MESSAGE_RETENTION_DAYS - 1)
+    for path in MESSAGE_DIR.glob("message_*_*.txt"):
+        try:
+            date_text = path.stem.rsplit("_", 1)[-1]
+            file_date = datetime.strptime(date_text, "%Y%m%d").date()
+        except ValueError:
+            continue
+        if file_date < cutoff:
+            path.unlink(missing_ok=True)
+
+
+def _save_llm_messages(app_key: str, messages: list) -> None:
+    now = datetime.now()
+    MESSAGE_DIR.mkdir(parents=True, exist_ok=True)
+    _cleanup_old_message_files(now)
+    safe_app_key = _safe_filename_part(app_key)
+    file_path = MESSAGE_DIR / f"message_{safe_app_key}_{now.strftime('%Y%m%d')}.txt"
+    payload = {
+        "app_key": app_key,
+        "created_at": now.isoformat(timespec="seconds"),
+        "messages": messages,
+    }
+    file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _persist_usage_blocking(
+    app_key: str,
+    user_message: str,
+    ai_response: str,
+    total_tokens: int,
+    provider_name: str,
+    model_name: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    save_conversation: bool = True,
+) -> None:
+    db = SessionLocal()
+    try:
+        asyncio.run(update_token_stats(db, app_key, total_tokens))
+        if save_conversation:
+            round_number = asyncio.run(_save_conversation(db, app_key, user_message, ai_response))
+            asyncio.run(
+                save_conversation_token_usage(
+                    db=db,
+                    app_key=app_key,
+                    round_number=round_number,
+                    provider_name=provider_name,
+                    model_name=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+            )
+    finally:
+        db.close()
 
 
 async def _save_conversation(
@@ -138,30 +264,95 @@ def _estimate_prompt_tokens(llm_client, messages: list) -> int:
     return max(int(llm_client.count_tokens(joined)), 0) if joined else 0
 
 
+def _message_content_to_text(content) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        return "\n".join(str(item).strip() for item in content if item).strip()
+    if content is not None:
+        return str(content).strip()
+    return ""
+
+
+def _normalize_text(value) -> str:
+    return value if isinstance(value, str) else ""
+
+
+def _log_llm_elapsed(app_key: str, provider_code: str, model: str, stream: bool, started_at: float, status: str) -> None:
+    elapsed_seconds = time.perf_counter() - started_at
+    print(
+        "LLM request elapsed | "
+        f"app_key:{app_key} | provider:{provider_code} | model:{model} | "
+        f"stream:{stream} | status:{status} | elapsed_seconds:{elapsed_seconds:.3f}"
+    )
+
+
+def _is_llm_timeout_error(error: Exception) -> bool:
+    return isinstance(
+        error,
+        (
+            asyncio.TimeoutError,
+            TimeoutError,
+            httpx.TimeoutException,
+            openai.APITimeoutError,
+        ),
+    )
+
+
+def _llm_timeout_message() -> str:
+    return "LLM request timed out after 300 seconds"
+
+
 async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = False):
     body = await request.json()
     app_key = _resolve_app_key(request, body)
-    provider_key, provider = _resolve_provider_context(db, app_key)
+    provider_context = await run_blocking(_resolve_provider_context_blocking, app_key)
     openai_payload = _build_openai_payload(body)
-
     messages = body.get("messages", [])
     if not isinstance(messages, list) or len(messages) == 0:
         raise HTTPException(status_code=400, detail="messages is required")
+    system_contexts = []
+    user_messages = []
+    for message in messages:
+        if isinstance(message, dict) and message.get("role") == "system":
+            system_content = _message_content_to_text(message.get("content"))
+            if system_content:
+                system_contexts.append(system_content)
+        else:
+            user_messages.append(message)
+    messages = user_messages
 
-    model = body.get("model") or provider_key.model_name or "qwen-plus"
+    provider_code = provider_context["provider_code"]
+    provider_name = provider_context["provider_name"]
+    provider_base_url = provider_context["provider_base_url"]
+    provider_api_key = provider_context["provider_key_api_key"]
+    provider_model_name = provider_context["provider_key_model_name"]
+    model = _resolve_request_model(body, provider_model_name)
     stream = force_stream or body.get("stream", False)
-
-    memory_context = await load_memory(app_key, db=db)
-    memory_context = (
-        memory_context
-        + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
-        if memory_context
-        else None
-    )
+    openai_payload["model"] = model
+    use_memory = _resolve_use_memory(body)
+    if use_memory:
+        print(f"用户[{app_key}] - 输入use_memory：{use_memory} ")
+        memory_context = await run_blocking(_load_memory_blocking, app_key)
+        # print(f"用户[{app_key}] - 加载到的memory_context：{len(memory_context) if memory_context else 0} ")
+        memory_context = (
+            memory_context
+            + " \n ---------------- \n 以上是与用户相关的历史记忆内容（含永久记忆与近期对话临时记忆）,请根据用户输入的内容进行回答，无关的内容忽略。"
+            if memory_context
+            else None
+        )
+    else:
+        memory_context = None
+    system_content_parts = []
     if memory_context:
-        messages.insert(0, {"role": "system", "content": memory_context})
-
-    llm_client = get_llm_client(provider.code, provider_key.api_key, provider.base_url)
+        system_content_parts.append(memory_context)
+    system_content_parts.extend(system_contexts)
+    if system_content_parts:
+        messages.insert(0, {"role": "system", "content": "\n\n".join(system_content_parts)})
+    openai_payload["messages"] = messages
+    await run_blocking(_save_llm_messages, app_key, messages)
+    print(f"最终输入openai_payload-messages：{messages}")
+    llm_client = get_llm_client(provider_code, provider_api_key, provider_base_url)
     total_tokens = 0
     prompt_tokens = 0
     completion_tokens = 0
@@ -182,25 +373,27 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             total_tokens = prompt_tokens + completion_tokens
         if total_tokens <= 0:
             return
-        await update_token_stats(db, app_key, total_tokens)
         user_message = messages[-1].get("content", "") if messages else ""
-        round_number = await _save_conversation(db, app_key, user_message, ai_response)
-        await save_conversation_token_usage(
-            db=db,
-            app_key=app_key,
-            round_number=round_number,
-            provider_name=provider.name,
-            model_name=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
+        await run_blocking(
+            _persist_usage_blocking,
+            app_key,
+            user_message,
+            ai_response,
+            total_tokens,
+            provider_name,
+            model,
+            prompt_tokens,
+            completion_tokens,
+            use_memory,
         )
-        schedule_memory_processing(app_key)
+        if use_memory:
+            schedule_memory_processing(app_key)
         persisted = True
 
     async def generate():
         nonlocal total_tokens, prompt_tokens, completion_tokens, ai_response
         prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
+        llm_started_at = time.perf_counter()
         try:
             async for chunk in llm_client.chat_completion(
                 messages, model, True, openai_payload
@@ -217,14 +410,15 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
                     delta = first_choice.get("delta", {})
                     if not isinstance(delta, dict):
                         delta = {}
-                    content = delta.get("content", "")
+                    content = _normalize_text(delta.get("content"))
                     if not content and "message" in first_choice:
                         message_obj = first_choice.get("message", {})
                         if isinstance(message_obj, dict):
-                            content = message_obj.get("content", "")
+                            content = _normalize_text(message_obj.get("content"))
                     ai_response += content
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
         except httpx.HTTPStatusError as e:
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "http_error")
             error_payload = {
                 "error": {
                     "type": "upstream_http_error",
@@ -237,16 +431,31 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
+        except asyncio.CancelledError:
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "cancelled")
+            await persist_usage()
+            raise
         except Exception as e:
+            if _is_llm_timeout_error(e):
+                _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "timeout")
+                error_payload = {
+                    "error": {
+                        "type": "upstream_timeout",
+                        "status_code": 504,
+                        "message": _llm_timeout_message(),
+                    }
+                }
+                yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "error")
             await persist_usage()
             error_payload = {"error": {"type": "stream_error", "message": str(e)}}
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
-        except asyncio.CancelledError:
-            await persist_usage()
-            raise
 
+        _log_llm_elapsed(app_key, provider_code, model, True, llm_started_at, "success")
         await persist_usage()
         yield "data: [DONE]\n\n"
 
@@ -254,12 +463,25 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     result = None
-    async for chunk in llm_client.chat_completion(
-        messages, model, False, openai_payload
-    ):
-        result = chunk
+    llm_started_at = time.perf_counter()
+    try:
+        async for chunk in llm_client.chat_completion(
+            messages, model, False, openai_payload
+        ):
+            result = chunk
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "success")
+    except httpx.HTTPStatusError:
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "http_error")
+        raise
+    except Exception as e:
+        if _is_llm_timeout_error(e):
+            _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "timeout")
+            raise HTTPException(status_code=504, detail=_llm_timeout_message()) from e
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "error")
+        raise
 
     if result is None:
+        _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "empty_response")
         raise HTTPException(
             status_code=502, detail="Upstream provider returned empty response"
         )
@@ -275,26 +497,27 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     )
     if not isinstance(message_obj, dict):
         message_obj = {}
-    ai_response = message_obj.get("content", "")
+    ai_response = _normalize_text(message_obj.get("content"))
     if completion_tokens <= 0:
         completion_tokens = (
             max(int(llm_client.count_tokens(ai_response)), 0) if ai_response else 0
         )
     if total_tokens <= 0:
         total_tokens = prompt_tokens + completion_tokens
-    await update_token_stats(db, app_key, total_tokens)
-    round_number = await _save_conversation(db, app_key, user_message, ai_response)
-    await save_conversation_token_usage(
-        db=db,
-        app_key=app_key,
-        round_number=round_number,
-        provider_name=provider.name,
-        model_name=model,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=total_tokens,
+    await run_blocking(
+        _persist_usage_blocking,
+        app_key,
+        user_message,
+        ai_response,
+        total_tokens,
+        provider_name,
+        model,
+        prompt_tokens,
+        completion_tokens,
+        use_memory,
     )
-    schedule_memory_processing(app_key)
+    if use_memory:
+        schedule_memory_processing(app_key)
     return result
 
 

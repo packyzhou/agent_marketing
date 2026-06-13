@@ -3,7 +3,7 @@ services:
     image: mysql:latest
     container_name: ai_agent_mysql
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: ai_agent_platform
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
@@ -11,8 +11,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - /Users/zhoujingwei/Desktop/work/mount/mysql:/var/lib/mysql
     networks:
       - ai_agent_network
     healthcheck:
@@ -27,7 +26,7 @@ services:
       dockerfile: Dockerfile
     container_name: ai_agent_backend
     environment:
-      DATABASE_URL: mysql+pymysql://root:rootpassword@mysql:3306/ai_agent_platform?charset=utf8mb4
+      DATABASE_URL: mysql+pymysql://root:123456@mysql:3306/ai_agent_platform?charset=utf8mb4
       SECRET_KEY: your-secret-key-change-in-production-12345678
     ports:
       - "8000:8000"
@@ -38,6 +37,7 @@ services:
       - ai_agent_network
     volumes:
       - ./server/memory_files:/app/memory_files
+      - ./server/message:/app/message
 
   frontend:
     build:

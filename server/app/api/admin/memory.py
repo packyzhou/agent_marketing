@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
-import os
+from datetime import datetime, timezone
+from pathlib import Path
 from ...core.database import get_db
 from ...core.deps import get_current_user, is_admin
 from ...core.utils import dt_to_local_str
 from ...models.user import User
 from ...models.memory import MemoryMeta
 from ...models.tenant import Tenant
+from ...services.memory_service import get_kv_file, get_digest_file, get_domain_file, resolve_memory_file_path
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -34,27 +36,65 @@ class MemoryResponse(BaseModel):
     last_processed_at: Optional[str]
 
 
+class MemoryUpdateRequest(BaseModel):
+    kv_content: Optional[str] = None
+    digest_content: Optional[str] = None
+    domain_content: Optional[str] = None
+
+
 def _read_text_file(path: Optional[str]) -> str:
-    if not path or not os.path.exists(path):
+    resolved_path = resolve_memory_file_path(path)
+    if not resolved_path or not resolved_path.exists():
         return ""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(resolved_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception:
         return ""
 
 
 def _resolve_domain_path(mem: Optional[MemoryMeta], app_key: str) -> str:
-    """优先使用元数据中的路径；不存在时按约定拼接，以便旧数据兼容。"""
-    from ...services.memory_service import get_domain_file
-    if mem and mem.domain_file_path:
-        return mem.domain_file_path
-    return str(get_domain_file(app_key))
+    resolved_path = resolve_memory_file_path(
+        mem.domain_file_path if mem else None,
+        get_domain_file(app_key)
+    )
+    return str(resolved_path) if resolved_path else ""
+
+
+def _memory_file_exists(path: Optional[str]) -> bool:
+    resolved_path = resolve_memory_file_path(path)
+    return bool(resolved_path and resolved_path.exists())
 
 
 def _calc_memory_size(kv_content: str, digest_content: str, domain_content: str = "") -> int:
     """记忆库容量 = 事实记忆层 + 行为摘要层 + 领域记忆层 的字符数"""
     return len(kv_content or "") + len(digest_content or "") + len(domain_content or "")
+
+
+def _ensure_memory_meta(db: Session, app_key: str) -> MemoryMeta:
+    memory_meta = db.query(MemoryMeta).filter(MemoryMeta.app_key == app_key).first()
+    if memory_meta:
+        return memory_meta
+    memory_meta = MemoryMeta(
+        app_key=app_key,
+        kv_file_path=str(resolve_memory_file_path(None, get_kv_file(app_key))),
+        digest_file_path=str(resolve_memory_file_path(None, get_digest_file(app_key))),
+        domain_file_path=str(resolve_memory_file_path(None, get_domain_file(app_key))),
+        last_processed_round=0,
+        total_duration_seconds=0,
+    )
+    db.add(memory_meta)
+    db.flush()
+    return memory_meta
+
+
+def _write_text_file(path: Optional[str], content: str) -> None:
+    resolved_path = resolve_memory_file_path(path)
+    if not resolved_path:
+        raise HTTPException(status_code=400, detail="Invalid memory file path")
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(resolved_path, "w", encoding="utf-8") as f:
+        f.write(content or "")
 
 @router.get("/memory/{app_key}", response_model=MemoryResponse)
 async def get_memory(
@@ -85,6 +125,48 @@ async def get_memory(
         total_duration_seconds=(memory_meta.total_duration_seconds if memory_meta else 0) or 0,
         memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
         last_processed_at=dt_to_local_str(memory_meta.last_updated) if memory_meta else None
+    )
+
+
+@router.put("/memory/{app_key}", response_model=MemoryResponse)
+async def update_memory(
+    app_key: str,
+    payload: MemoryUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    tenant = db.query(Tenant).filter(Tenant.app_key == app_key).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if not is_admin(db, current_user) and tenant.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    memory_meta = _ensure_memory_meta(db, app_key)
+    if payload.kv_content is not None:
+        _write_text_file(memory_meta.kv_file_path, payload.kv_content)
+    if payload.digest_content is not None:
+        _write_text_file(memory_meta.digest_file_path, payload.digest_content)
+    if payload.domain_content is not None:
+        _write_text_file(_resolve_domain_path(memory_meta, app_key), payload.domain_content)
+
+    memory_meta.last_updated = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    db.refresh(memory_meta)
+
+    kv_content = _read_text_file(memory_meta.kv_file_path)
+    digest_content = _read_text_file(memory_meta.digest_file_path)
+    domain_content = _read_text_file(_resolve_domain_path(memory_meta, app_key))
+
+    return MemoryResponse(
+        app_key=app_key,
+        tenant_name=tenant.tenant_name,
+        kv_content=kv_content or None,
+        digest_content=digest_content or None,
+        domain_content=domain_content or None,
+        total_duration_seconds=memory_meta.total_duration_seconds or 0,
+        memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
+        last_processed_at=dt_to_local_str(memory_meta.last_updated)
     )
 
 @router.get("/memory", response_model=list[MemoryListResponse])
@@ -132,9 +214,9 @@ async def list_all_memory(
                 total_duration_seconds=(mem.total_duration_seconds if mem else 0) or 0,
                 memory_size=_calc_memory_size(kv_content, digest_content, domain_content),
                 last_processed_at=dt_to_local_str(mem.last_updated) if mem else None,
-                has_kv_file=bool(mem and mem.kv_file_path and os.path.exists(mem.kv_file_path)),
-                has_digest_file=bool(mem and mem.digest_file_path and os.path.exists(mem.digest_file_path)),
-                has_domain_file=bool(domain_path and os.path.exists(domain_path))
+                has_kv_file=bool(mem and _memory_file_exists(mem.kv_file_path)),
+                has_digest_file=bool(mem and _memory_file_exists(mem.digest_file_path)),
+                has_domain_file=bool(domain_path and Path(domain_path).exists())
             )
         )
     return result
@@ -159,18 +241,20 @@ async def clear_memory_files(
     cleared_digest = False
     cleared_domain = False
 
-    if memory_meta.kv_file_path and os.path.exists(memory_meta.kv_file_path):
-        with open(memory_meta.kv_file_path, "w", encoding="utf-8") as f:
+    kv_path = resolve_memory_file_path(memory_meta.kv_file_path)
+    if kv_path and kv_path.exists():
+        with open(kv_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_kv = True
 
-    if memory_meta.digest_file_path and os.path.exists(memory_meta.digest_file_path):
-        with open(memory_meta.digest_file_path, "w", encoding="utf-8") as f:
+    digest_path = resolve_memory_file_path(memory_meta.digest_file_path)
+    if digest_path and digest_path.exists():
+        with open(digest_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_digest = True
 
     domain_path = _resolve_domain_path(memory_meta, app_key)
-    if domain_path and os.path.exists(domain_path):
+    if domain_path and Path(domain_path).exists():
         with open(domain_path, "w", encoding="utf-8") as f:
             f.write("")
         cleared_domain = True
