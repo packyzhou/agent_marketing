@@ -29,6 +29,10 @@
             :placeholder="modelLoading ? '正在查询租户配置模型…' : '不填则使用租户配置模型'"
           />
         </el-form-item>
+        <el-form-item label="启动Agent模式">
+          <el-switch v-model="form.useAgent" />
+          <span class="hint-text">开启后将通过 Agent SDK（含MCP插件）访问模型，关闭则走原始模型入口</span>
+        </el-form-item>
         <el-form-item label="问题输入">
           <el-input v-model="form.question" type="textarea" :rows="4" placeholder="请输入问题后点击发送" />
         </el-form-item>
@@ -80,7 +84,8 @@ const form = ref({
   apiUrl: `${window.location.origin}/chat/completions`,
   appKey: '',
   model: '',
-  question: ''
+  question: '',
+  useAgent: false
 })
 
 const loading = ref(false)
@@ -191,7 +196,8 @@ const sendMessage = async () => {
   const payload = {
     app_key: normalizedAppKey,
     messages: [{ role: 'user', content: normalizedQuestion }],
-    stream: true
+    stream: true,
+    use_agent: form.value.useAgent
   }
   if (normalizedModel) {
     payload.model = normalizedModel
@@ -396,5 +402,11 @@ pre {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.hint-text {
+  margin-left: 12px;
+  font-size: 12px;
+  color: #94a3b8;
 }
 </style>

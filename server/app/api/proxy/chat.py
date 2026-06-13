@@ -17,6 +17,7 @@ from ...models.conversation import Conversation
 from ...services.llm_factory import get_llm_client
 from ...services.token_service import update_token_stats, save_conversation_token_usage
 from ...services.memory_service import load_memory, schedule_memory_processing
+from ...agent import service as agent_service
 import json
 import httpx
 import openai
@@ -93,6 +94,7 @@ def _build_openai_payload(body: dict) -> dict:
     payload.pop("app_key", None)
     payload.pop("debug", None)
     payload.pop("use_memory", None)
+    payload.pop("use_agent", None)
     return payload
 
 
@@ -104,6 +106,17 @@ def _resolve_use_memory(body: dict) -> bool:
         return value
     if isinstance(value, str):
         return value.strip().lower() != "false"
+    return bool(value)
+
+
+def _resolve_use_agent(body: dict) -> bool:
+    if not isinstance(body, dict):
+        return False
+    value = body.get("use_agent", False)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
     return bool(value)
 
 
@@ -331,6 +344,14 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     stream = force_stream or body.get("stream", False)
     openai_payload["model"] = model
     use_memory = _resolve_use_memory(body)
+    use_agent = _resolve_use_agent(body)
+    if use_agent:
+        flow_ready = await run_blocking(agent_service.has_enabled_flow_blocking, app_key)
+        if not flow_ready:
+            raise HTTPException(
+                status_code=400,
+                detail="No enabled agent flow configured for this app_key",
+            )
     if use_memory:
         print(f"用户[{app_key}] - 输入use_memory：{use_memory} ")
         memory_context = await run_blocking(_load_memory_blocking, app_key)
@@ -347,12 +368,28 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     if memory_context:
         system_content_parts.append(memory_context)
     system_content_parts.extend(system_contexts)
-    if system_content_parts:
-        messages.insert(0, {"role": "system", "content": "\n\n".join(system_content_parts)})
+    system_text = "\n\n".join(system_content_parts) if system_content_parts else ""
+    # In agent mode the system/memory context is passed as the Agent's
+    # instructions (the SDK runner only consumes user/assistant input items),
+    # so we must not inject it as a system message into `messages`.
+    agent_extra_instructions = system_text or None if use_agent else None
+    if system_text and not use_agent:
+        messages.insert(0, {"role": "system", "content": system_text})
     openai_payload["messages"] = messages
     await run_blocking(_save_llm_messages, app_key, messages)
-    print(f"最终输入openai_payload-messages：{messages}")
+    print(f"最终输入openai_payload-messages：{messages} | use_agent:{use_agent}")
     llm_client = get_llm_client(provider_code, provider_api_key, provider_base_url)
+
+    def completion_source(stream_flag: bool):
+        if use_agent:
+            return agent_service.run_agent(
+                app_key,
+                messages,
+                model_label=model,
+                extra_instructions=agent_extra_instructions,
+                stream=stream_flag,
+            )
+        return llm_client.chat_completion(messages, model, stream_flag, openai_payload)
     total_tokens = 0
     prompt_tokens = 0
     completion_tokens = 0
@@ -395,9 +432,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
         prompt_tokens = _estimate_prompt_tokens(llm_client, messages)
         llm_started_at = time.perf_counter()
         try:
-            async for chunk in llm_client.chat_completion(
-                messages, model, True, openai_payload
-            ):
+            async for chunk in completion_source(True):
                 usage_prompt, usage_completion, usage_total = _extract_openai_usage(
                     chunk
                 )
@@ -465,9 +500,7 @@ async def _proxy_chat_impl(request: Request, db: Session, force_stream: bool = F
     result = None
     llm_started_at = time.perf_counter()
     try:
-        async for chunk in llm_client.chat_completion(
-            messages, model, False, openai_payload
-        ):
+        async for chunk in completion_source(False):
             result = chunk
         _log_llm_elapsed(app_key, provider_code, model, False, llm_started_at, "success")
     except httpx.HTTPStatusError:

@@ -12,6 +12,9 @@ from .core.database import engine, Base, SessionLocal
 from .models.user import User, UserRole, Role, RoleType
 from .models.provider import Provider
 from .models.system_prompt import SystemPrompt  # noqa: F401 – registers table with Base
+from .models.agent_flow import AgentFlowConfig, AgentPluginRef  # noqa: F401 – registers tables with Base
+from .models.file_scan import FileScanRecord  # noqa: F401 – registers table with Base
+from .api.agent_records import router as agent_records_router
 from .services.llm_base import close_openai_clients
 
 Base.metadata.create_all(bind=engine)
@@ -125,6 +128,52 @@ if not engine.url.drivername.startswith("sqlite"):
             )
         """))
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_agent_flow_config (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                app_key VARCHAR(64) NOT NULL UNIQUE,
+                name VARCHAR(150) NOT NULL DEFAULT 'Agent',
+                instructions LONGTEXT NULL,
+                mode VARCHAR(20) NOT NULL DEFAULT 'single',
+                model VARCHAR(100) NULL,
+                max_turns INT NOT NULL DEFAULT 10,
+                sub_agents LONGTEXT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_agent_flow_app_key (app_key)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_agent_plugin_ref (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                flow_config_id BIGINT NOT NULL,
+                app_key VARCHAR(64) NOT NULL,
+                plugin_name VARCHAR(150) NOT NULL,
+                description LONGTEXT NULL,
+                plugin_type VARCHAR(20) NOT NULL DEFAULT 'custom',
+                builtin_key VARCHAR(100) NULL,
+                script_content LONGTEXT NULL,
+                config_json LONGTEXT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_agent_plugin_flow (flow_config_id),
+                INDEX idx_agent_plugin_app_key (app_key)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_file_scan_record (
+                id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                app_key VARCHAR(64) NOT NULL,
+                scan_path VARCHAR(1024) NOT NULL,
+                file_count INT NOT NULL DEFAULT 0,
+                files LONGTEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_file_scan_app_key (app_key)
+            )
+        """))
+        conn.execute(text("""
             DELETE p1 FROM tb_provider_key p1
             INNER JOIN tb_provider_key p2
             ON p1.app_key = p2.app_key AND p1.id < p2.id
@@ -191,6 +240,48 @@ else:
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_agent_flow_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_key VARCHAR(64) NOT NULL UNIQUE,
+                name VARCHAR(150) NOT NULL DEFAULT 'Agent',
+                instructions TEXT NULL,
+                mode VARCHAR(20) NOT NULL DEFAULT 'single',
+                model VARCHAR(100) NULL,
+                max_turns INTEGER NOT NULL DEFAULT 10,
+                sub_agents TEXT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_agent_plugin_ref (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                flow_config_id INTEGER NOT NULL,
+                app_key VARCHAR(64) NOT NULL,
+                plugin_name VARCHAR(150) NOT NULL,
+                description TEXT NULL,
+                plugin_type VARCHAR(20) NOT NULL DEFAULT 'custom',
+                builtin_key VARCHAR(100) NULL,
+                script_content TEXT NULL,
+                config_json TEXT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tb_file_scan_record (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_key VARCHAR(64) NOT NULL,
+                scan_path VARCHAR(1024) NOT NULL,
+                file_count INTEGER NOT NULL DEFAULT 0,
+                files TEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
         # SQLite 不直接支持在 CREATE TABLE 之外添加索引或删除重复数据的复杂语法
         # 这里简单处理，生产环境应使用迁移工具
 
@@ -212,6 +303,7 @@ app.include_router(stats_router, prefix="/api/user", tags=["stats"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(proxy_router, prefix="/api/proxy", tags=["proxy"])
 app.include_router(proxy_router, tags=["openai"])
+app.include_router(agent_records_router, prefix="/api/agent", tags=["agent-data"])
 
 @app.on_event("shutdown")
 async def shutdown_event():

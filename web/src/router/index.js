@@ -83,6 +83,16 @@ const routes = [
         component: () => import('../views/admin/SystemPrompts.vue')
       },
       {
+        path: 'agent-orchestrator',
+        name: 'AdminAgentOrchestrator',
+        component: () => import('../views/admin/AgentOrchestrator.vue')
+      },
+      {
+        path: 'agent-plugins',
+        name: 'AdminAgentPlugins',
+        component: () => import('../views/admin/AgentPlugins.vue')
+      },
+      {
         path: 'proxy-debug',
         name: 'AdminProxyDebug',
         component: () => import('../views/user/ProxyDebug.vue')

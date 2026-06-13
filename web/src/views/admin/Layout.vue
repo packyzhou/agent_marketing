@@ -106,7 +106,8 @@ import { ElMessage } from 'element-plus'
 import api from '../../api/request'
 import {
   User as UserIcon, ChevronDown, Users, Shield, FolderOpen,
-  Building2, Server, BarChart3, Brain, MessageSquare, FileText
+  Building2, Server, BarChart3, Brain, MessageSquare, FileText,
+  Workflow, Puzzle
 } from 'lucide-vue-next'
 import LangSwitcher from '../../components/LangSwitcher.vue'
 
@@ -129,6 +130,8 @@ const allMenuItems = [
   { path: '/admin/tokens', labelKey: 'admin.menu.tokens', icon: BarChart3, adminOnly: true },
   { path: '/admin/memory', labelKey: 'admin.menu.memory', icon: Brain, adminOnly: false },
   { path: '/admin/system-prompts', labelKey: 'admin.menu.systemPrompts', icon: FileText, adminOnly: true },
+  { path: '/admin/agent-orchestrator', labelKey: 'admin.menu.agentOrchestrator', icon: Workflow, adminOnly: false },
+  { path: '/admin/agent-plugins', labelKey: 'admin.menu.agentPlugins', icon: Puzzle, adminOnly: false },
   { path: '/admin/proxy-debug', labelKey: 'admin.menu.chatDebug', icon: MessageSquare, adminOnly: false }
 ]
 
