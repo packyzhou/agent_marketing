@@ -69,10 +69,56 @@ def _build_model(model_name: Optional[str]):
     return OpenAIChatCompletionsModel(model=resolved_model, openai_client=client)
 
 
-async def _open_mcp_server(spec: PluginSpec, exit_stack: AsyncExitStack):
+_logging_server_cls = None
+
+
+def _get_logging_server_cls():
+    """Subclass of MCPServerStdio that logs every tool call with args + duration.
+
+    The Agents SDK invokes server.call_tool(tool_name, arguments) for each tool
+    the agent decides to run, so this captures every real plugin invocation.
+    Built lazily because the SDK import is optional.
+    """
+    global _logging_server_cls
+    if _logging_server_cls is not None:
+        return _logging_server_cls
+
+    import time
+
     from agents.mcp import MCPServerStdio
 
-    server = MCPServerStdio(
+    class LoggingMCPServerStdio(MCPServerStdio):
+        async def call_tool(self, *args, **kwargs):
+            tool_name = kwargs.get("tool_name")
+            if tool_name is None and args:
+                tool_name = args[0]
+            arguments = kwargs.get("arguments")
+            if arguments is None and len(args) > 1:
+                arguments = args[1]
+            try:
+                args_text = json.dumps(arguments or {}, ensure_ascii=False)
+            except (TypeError, ValueError):
+                args_text = str(arguments)
+
+            started = time.perf_counter()
+            status = "ok"
+            try:
+                return await super().call_tool(*args, **kwargs)
+            except Exception as exc:  # noqa: BLE001 - log then re-raise
+                status = f"error:{type(exc).__name__}"
+                raise
+            finally:
+                elapsed = time.perf_counter() - started
+                print(f"[插件调用] [{self.name} - {tool_name}:{args_text}] [{elapsed:.3f}s] [{status}]")
+
+    _logging_server_cls = LoggingMCPServerStdio
+    return _logging_server_cls
+
+
+async def _open_mcp_server(spec: PluginSpec, exit_stack: AsyncExitStack):
+    server_cls = _get_logging_server_cls()
+
+    server = server_cls(
         name=spec.name,
         params=spec.to_mcp_params(),
         cache_tools_list=True,

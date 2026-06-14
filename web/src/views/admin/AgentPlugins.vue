@@ -130,15 +130,23 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../../api/request'
 
-const DEFAULT_SCRIPT = `from mcp.server.fastmcp import FastMCP
+const DEFAULT_SCRIPT = `import json
+
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("my_plugin")
 
 
 @mcp.tool()
 def echo(text: str) -> str:
-    """Return the text unchanged."""
-    return text
+    """Return the text unchanged.
+
+    Tip: a tool must return a NON-EMPTY string. For structured data return
+    json.dumps(data, ensure_ascii=False) — returning a raw list/dict or an
+    empty value makes the Chat Completions model drop the output and use a
+    placeholder, so the model never sees your result.
+    """
+    return json.dumps({"echo": text}, ensure_ascii=False)
 
 
 if __name__ == "__main__":

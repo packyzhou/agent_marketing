@@ -166,6 +166,14 @@ async def debug_plugin(
         env=spec.env or None,
     )
 
+    print(
+        "[plugin debug] 插件输入 | "
+        f"app_key:{app_key} | plugin:{plugin_name} | type:{plugin_type} | "
+        f"builtin_key:{builtin_key} | command:{spec.command} | args:{spec.args} | "
+        f"env_keys:{sorted(spec.env.keys())} | tool_name:{tool_name} | "
+        f"tool_args:{json.dumps(tool_args or {}, ensure_ascii=False)}"
+    )
+
     async def _run() -> Dict[str, Any]:
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -181,6 +189,10 @@ async def debug_plugin(
                 ]
                 called = None
                 if tool_name:
+                    print(
+                        f"[plugin debug] 调用工具前 | tool_name:{tool_name} | "
+                        f"tool_args:{json.dumps(tool_args or {}, ensure_ascii=False)}"
+                    )
                     result = await session.call_tool(tool_name, tool_args or {})
                     called = {
                         "tool": tool_name,
