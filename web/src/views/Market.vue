@@ -97,9 +97,9 @@
             <div class="bg-slate-50/50 rounded-2xl p-4 border border-transparent group-hover:border-slate-100 transition-colors">
               <div class="flex items-center text-slate-400 mb-1">
                 <Clock class="w-3 h-3 mr-1.5" />
-                <span class="text-[9px] font-bold uppercase tracking-widest">{{ $t('home.duration') }}</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest">{{ $t('home.earnings') }}</span>
               </div>
-              <span class="text-sm font-black font-mono">{{ agent.duration }}</span>
+              <span class="text-sm font-black font-mono" :class="Number(agent.totalEarnings) > 0 ? 'text-rose-600' : Number(agent.totalEarnings) < 0 ? 'text-emerald-600' : 'text-slate-950'">{{ formatCurrency(agent.totalEarnings || 0) }}</span>
             </div>
           </div>
 
@@ -150,6 +150,7 @@ import { useI18n } from 'vue-i18n'
 import { Star, TrendingUp, Building2, Database, Clock, ChevronRight } from 'lucide-vue-next'
 import LangSwitcher from '../components/LangSwitcher.vue'
 import PaymentModal from '../components/PaymentModal.vue'
+import api from '../api/request'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -210,12 +211,22 @@ const MEMORY_SIZES = [0.5,0.8,1.2,1.5,1.8,2.1,2.5,2.8,3.2,3.5,4.1,4.8]
 const DURATIONS    = ['7 Days','10 Days','12 Days','15 Days','18 Days','21 Days','30 Days']
 const PRICES       = [49,69,89,99,109,129,149,159,179,199]
 
-function generateAgent(i) {
+const fallbackRows = Array.from({ length: 100 }, (_, i) => {
   const baseName = NAMES[i % NAMES.length]
   const suffix   = i >= NAMES.length ? ` ${String.fromCharCode(65 + Math.floor(i / NAMES.length) - 1)}` : ''
   return {
+    app_key: baseName + suffix,
+    tenant_name: baseName + suffix,
+    total_earnings: 0
+  }
+})
+
+function generateAgent(row, i) {
+  const name = row.tenant_name || `Agent ${i + 1}`
+  return {
     id:          i + 1,
-    name:        baseName + suffix,
+    appKey:      row.app_key,
+    name,
     age:         24 + (i * 7 % 16),
     title:       TITLES[i % TITLES.length],
     avatar:      `https://i.pravatar.cc/200?img=${(i % 70) + 1}`,
@@ -226,14 +237,15 @@ function generateAgent(i) {
     memory:      MEMORY_SIZES[i % MEMORY_SIZES.length],
     duration:    DURATIONS[i % DURATIONS.length],
     price:       PRICES[i % PRICES.length],
+    totalEarnings: Number(row.total_earnings) || 0,
   }
 }
 
-const allAgents = Array.from({ length: 100 }, (_, i) => generateAgent(i))
+const allAgents = ref([])
 
 // ── Sorting ─────────────────────────────────────────────────────────────────
 const sortedAgents = computed(() => {
-  const list = [...allAgents]
+  const list = [...allAgents.value]
   if (activeTab.value === 'rating')    return list.sort((a, b) => b.rating - a.rating || b.hires - a.hires)
   if (activeTab.value === 'purchases') return list.sort((a, b) => b.hires  - a.hires)
   if (activeTab.value === 'memory')    return list.sort((a, b) => b.memory - a.memory)
@@ -273,6 +285,7 @@ onMounted(() => {
     { threshold: 0.1 }
   )
   if (sentinel.value) observer.observe(sentinel.value)
+  loadAgents()
 })
 
 onUnmounted(() => {
@@ -282,6 +295,21 @@ onUnmounted(() => {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function formatHires(n) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+}
+
+function formatCurrency(value) {
+  const n = Number(value) || 0
+  const sign = n < 0 ? '-' : ''
+  return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+async function loadAgents() {
+  try {
+    const rows = await api.get('/admin/public/earnings')
+    allAgents.value = (rows?.length ? rows : fallbackRows).map(generateAgent)
+  } catch (error) {
+    allAgents.value = fallbackRows.map(generateAgent)
+  }
 }
 
 function buyAgent(agent) {

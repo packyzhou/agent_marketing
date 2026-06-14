@@ -110,6 +110,22 @@ class PluginDebugRequest(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+def _describe_exception(exc: BaseException, _depth: int = 0) -> str:
+    """Flatten exceptions, unwrapping ExceptionGroup (anyio TaskGroup) sub-exceptions.
+
+    MCP stdio runs inside an anyio TaskGroup, so a plugin failure (e.g. a missing
+    import in the script) surfaces as the opaque "unhandled errors in a TaskGroup
+    (N sub-exceptions)". This recurses into the real sub-exceptions so the UI shows
+    e.g. "ModuleNotFoundError: No module named 'trafilatura'".
+    """
+    subs = getattr(exc, "exceptions", None)
+    if subs and _depth < 5:
+        inner = "; ".join(_describe_exception(s, _depth + 1) for s in subs)
+        return inner or f"{type(exc).__name__}: {exc}"
+    text = str(exc).strip()
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
 def _normalize_config_json(value: Any) -> Optional[str]:
     if value is None:
         return None
@@ -360,5 +376,5 @@ async def debug_plugin(
             tool_args=data.tool_args,
         )
     except Exception as exc:  # noqa: BLE001 - return the error to the editor UI
-        raise HTTPException(status_code=400, detail=f"Debug failed: {exc}")
+        raise HTTPException(status_code=400, detail=f"Debug failed: {_describe_exception(exc)}")
     return result

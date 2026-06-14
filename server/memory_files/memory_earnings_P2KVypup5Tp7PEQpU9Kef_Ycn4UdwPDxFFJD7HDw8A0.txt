@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "label": "订阅收入",
+      "amount": 1280
+    },
+    {
+      "label": "API 调用收入",
+      "amount": 860
+    },
+    {
+      "label": "增值服务",
+      "amount": 420
+    },
+    {
+      "label": "训练成本",
+      "amount": -310
+    },
+    {
+      "label": "算力成本",
+      "amount": -520
+    },
+    {
+      "label": "退款",
+      "amount": -180
+    }
+  ]
+}

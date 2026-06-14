@@ -32,6 +32,10 @@ def get_domain_file(app_key: str) -> Path:
     return MEMORY_DIR / f"memory_domain_{app_key}.md"
 
 
+def get_earnings_file(app_key: str) -> Path:
+    return MEMORY_DIR / f"memory_earnings_{app_key}.txt"
+
+
 def resolve_memory_file_path(path: Optional[str], fallback: Optional[Path] = None) -> Optional[Path]:
     if not path:
         return fallback
@@ -178,6 +182,7 @@ async def get_memory_files(app_key: str) -> dict:
     kv_file = get_kv_file(app_key)
     digest_file = get_digest_file(app_key)
     domain_file = get_domain_file(app_key)
+    earnings_file = get_earnings_file(app_key)
     return {
         "app_key": app_key,
         "kv_content": kv_file.read_text(encoding="utf-8") if kv_file.exists() else "",
@@ -187,9 +192,13 @@ async def get_memory_files(app_key: str) -> dict:
         "domain_content": (
             domain_file.read_text(encoding="utf-8") if domain_file.exists() else ""
         ),
+        "earnings_content": (
+            earnings_file.read_text(encoding="utf-8") if earnings_file.exists() else ""
+        ),
         "kv_file": str(kv_file),
         "digest_file": str(digest_file),
         "domain_file": str(domain_file),
+        "earnings_file": str(earnings_file),
     }
 
 
@@ -288,6 +297,7 @@ async def _process_memory_with_ai(app_key: str) -> None:
         kv_path = resolve_memory_file_path(meta.kv_file_path, get_kv_file(app_key))
         digest_path = resolve_memory_file_path(meta.digest_file_path, get_digest_file(app_key))
         domain_path = resolve_memory_file_path(meta.domain_file_path, get_domain_file(app_key))
+        earnings_path = get_earnings_file(app_key)
 
         existing_fact = (
             kv_path.read_text(encoding="utf-8").strip() if kv_path.exists() else ""
@@ -299,13 +309,18 @@ async def _process_memory_with_ai(app_key: str) -> None:
         )
         existing_domain = _read_domain(domain_path)
         existing_work_skill = existing_domain.get("workSkill", "")
+        existing_earnings = (
+            earnings_path.read_text(encoding="utf-8").strip()
+            if earnings_path.exists()
+            else ""
+        )
 
-        # 3. 组装 JSON 数据集合发送给系统模型
         payload = {
             "dialogs": dialogs,
             "factMemory": existing_fact,
             "digestMemory": existing_digest,
             "domain_workSkill": existing_work_skill,
+            "earningsMemory": existing_earnings,
         }
         messages = [
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}
@@ -325,7 +340,6 @@ async def _process_memory_with_ai(app_key: str) -> None:
         if not result_text:
             return
 
-        # 4. 解析返回值，将 factMemory / digestMemory 写回对应文件
         result = _extract_json(result_text)
         print(f"记忆结果:{result}")
         if not result:
@@ -354,9 +368,30 @@ async def _process_memory_with_ai(app_key: str) -> None:
 
         # 领域记忆 - 工作技能：模型以 domain_workSkill 字段返回
         domain_work_skill = result.get("domain_workSkill")
+        if domain_work_skill in (None, "", [], {}):
+            domain_memory = result.get("domain_memory")
+            if isinstance(domain_memory, dict):
+                domain_work_skill = domain_memory.get("workSkill") or domain_memory.get("工作技能")
         if domain_work_skill not in (None, "", [], {}):
             existing_domain["workSkill"] = domain_work_skill
             _write_domain(domain_path, existing_domain)
+
+        earnings = (
+            result.get("earnings")
+            or result.get("earningsMemory")
+            or result.get("earningMemory")
+            or result.get("收益")
+            or result.get("收益记忆")
+        )
+        earnings_path.parent.mkdir(parents=True, exist_ok=True)
+        if earnings not in (None, "", [], {}):
+            if isinstance(earnings, str):
+                earnings_text = earnings.strip()
+            else:
+                earnings_text = json.dumps(earnings, ensure_ascii=False, indent=2)
+            earnings_path.write_text(earnings_text, encoding="utf-8")
+        elif not earnings_path.exists():
+            earnings_path.write_text(existing_earnings, encoding="utf-8")
 
         # 更新元数据文件路径
         meta.kv_file_path = str(kv_path)
@@ -364,9 +399,8 @@ async def _process_memory_with_ai(app_key: str) -> None:
         meta.domain_file_path = str(domain_path)
         db.commit()
 
-    except Exception:
-        # Memory processing must never crash the chat flow
-        pass
+    except Exception as exc:
+        print(f"记忆处理失败 appkey:{app_key} error:{exc}")
     finally:
         db.close()
 

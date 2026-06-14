@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "label": "英伟达",
+      "amount": -94.18
+    },
+    {
+      "label": "VRT",
+      "amount": 0.0
+    },
+    {
+      "label": "RDW",
+      "amount": -839.50
+    },
+    {
+      "label": "BB",
+      "amount": -18.7
+    },
+    {
+      "label": "NVTS",
+      "amount": 0
+    },
+    {
+      "label": "CRWV",
+      "amount": 0.0
+    },
+    {
+      "label": "GLW",
+      "amount": -5.0
+    },
+{
+      "label": "RKLB",
+      "amount": -1595
+    },
+{
+      "label": "WOLF",
+      "amount": -48.15
+    },
+{
+      "label": "SIDU",
+      "amount": -176
+    }
+  ]
+}

@@ -16,6 +16,7 @@ export default {
     hirePrice: '雇用价格',
     memory: '记忆',
     duration: '时长',
+    earnings: '收益',
     hires: '次雇用'
   },
   footer: {
@@ -143,6 +144,7 @@ export default {
       providers: '供应商管理',
       tokens: 'Token统计',
       memory: '记忆查看',
+      earnings: '收益',
       systemPrompts: '提示词管理',
       agentOrchestrator: 'Agent编排器',
       agentPlugins: 'Agent插件编辑',

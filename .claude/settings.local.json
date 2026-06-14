@@ -52,7 +52,22 @@
       "Bash(echo \"started pid $!\")",
       "Bash(curl -s -m 5 -X POST http://127.0.0.1:8011/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
       "Bash(.venv/bin/python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('RESULT:', d.get\\('called',{}\\).get\\('content'\\) if 'called' in d else d\\)\")",
-      "Bash(python3 -m py_compile app/agent/core/factory.py)"
+      "Bash(python3 -m py_compile app/agent/core/factory.py)",
+      "Bash(node -e \"import\\('lucide-vue-next'\\).then\\(m=>{console.log\\('Workflow:', typeof m.Workflow\\); console.log\\('Puzzle:', typeof m.Puzzle\\); console.log\\('Users:', typeof m.Users\\)}\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")",
+      "Bash(curl -s -m 3 -o /dev/null -w \"localhost:3000 -> %{http_code}\\\\n\" http://localhost:3000/agent_marketing/)",
+      "Bash(curl -s -m 3 -o /dev/null -w \"[::1]:3000 -> %{http_code}\\\\n\" \"http://[::1]:3000/agent_marketing/\")",
+      "Bash(lsof -iTCP:3000 -sTCP:LISTEN -n)",
+      "Bash(curl -s -m 5 -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"admin123\"}')",
+      "Bash(node -e \"console.log\\('node', process.version\\); console.log\\('global WebSocket:', typeof WebSocket\\)\")",
+      "Bash(node -e \"import\\('lucide-vue-next'\\).then\\(m=>console.log\\('Wallet exists:', typeof m.Wallet\\)\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const h=fs.readFileSync\\('/tmp/dom_fixed.html','utf8'\\);const i=h.indexOf\\('id=\\\\\"app\\\\\"'\\);const seg=h.slice\\(i,i+200\\);console.log\\(seg.replace\\(/\\\\s+/g,' '\\)\\);\")",
+      "Bash(pkill -f \"Google Chrome.*headless\")",
+      "Bash(pkill -f \"cprof_verify\")",
+      "Bash(rm -rf /tmp/cprof_verify /tmp/cprof_* /tmp/dom_*.html /tmp/chrome_console*.log /tmp/dom.html /tmp/chrome.err)",
+      "Bash(venv/bin/pip list *)",
+      "Bash(venv/bin/pip check *)",
+      "Bash(venv/bin/pip install *)",
+      "Bash(PYTHONPATH=. venv/bin/python -c ' *)"
     ],
     "additionalDirectories": [
       "/private/tmp"
