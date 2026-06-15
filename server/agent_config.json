@@ -14,7 +14,7 @@
   },
   "system_llm": {
     "provider": "qwen",
-    "api_key": "sk-8cb410e05bb946ce8820cdf2c7d47c91",
+    "api_key": "",
     "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "model": "qwen-plus"
   }
